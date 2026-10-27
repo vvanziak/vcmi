@@ -1711,6 +1711,15 @@ JsonNode ClaudeBridgeAI::battleState(bool includeMoves, std::optional<uint32_t> 
 		return ret;
 	}
 
+	if(observer && !cb->getActiveBattles().count(pending->battleID))
+	{
+		// the spectator is not told when a battle ends, so drop the stale entry
+		std::lock_guard lock(mx);
+		pendingBattle.reset();
+		ret["waiting"].Bool() = false;
+		return ret;
+	}
+
 	const auto battle = cb->getBattle(pending->battleID);
 	const battle::Unit * active = battle->battleGetUnitByID(unitOverride && pending->tactics ? *unitOverride : pending->unitId);
 	if(observer)

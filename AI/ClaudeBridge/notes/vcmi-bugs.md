@@ -65,3 +65,6 @@ Stock VCMI behaviour found during games, not caused by ClaudeBridge. Build: 1.8.
 
 - `UpgradeInfo.cpp` changed upstream (`positive()` -> `removeNegative()`), no behaviour issue found.
 - Bridge `recruit` was blocked by the bridge's own pending-dialog guard for the recruitment dialog (fixed in the bridge: allow kind=recruitment).
+
+## 11. Observer (spectator) mode: stale battle state
+- The SPECTATOR interface is never told when a battle ends, so `pendingBattle` stays set and `battle_state` threw "Failed to find battle N of player red". Fixed in the bridge (drop the entry when `cb->getActiveBattles()` no longer lists it); needs a client restart to take effect.
