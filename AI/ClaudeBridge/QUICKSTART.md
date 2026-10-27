@@ -76,3 +76,12 @@ Income decides the AI race: flag all mines with a cheap hero in week 1-2 and tak
 
 ## Spectator mode (human plays, Claude only watches)
 Launch without `--onlyAI`: `cd /Users/valerii/Projects/vcmi-build/bin && VCMI_CLAUDE_SPECTATE=red nohup ./vcmiclient --nointro --logLocation <scratchpad>/logs &`. The human picks the map and plays red normally. The bridge is installed as the SPECTATOR interface with red's view (port 37100) and accepts only read-only commands: game_state, game_status, battle_state, inspect, threats, targets, find_path, tile_info, get_tavern, get_buildable, lookup, artifacts, thieves_guild. Every other command is rejected ("spectator mode"). Do not combine with VCMI_CLAUDE_PLAYER. Client edits: `CClient::claudeObservedColor`, branch in `initPlayerInterfaces`.
+
+## Knee Deep in the Dead plan (games 22 win d44, 23 loss d82)
+- Timeline that wins: town d4 (route in notes/games.md), economy chain + garrison recruits, mines by d25, Keymaster tent (14,24) -> Border Guard (33,11) -> west along y=4-9 -> blue Necropolis (2,5) with ~100k by d40. Blue's capital is nearly empty early; heroes sit in the NE. After ~d55 blue merges heroes into one 230k -> 370k -> 480k stack and out-earns me with my mines.
+- Never end a hop next to unseen tiles; `threats` lists only heroes already seen. Scout with a cheap hero first.
+- Do not leave cheap heroes outside the walls near a roaming hero (lost Orrin, Cuthbert). Corridor (3,34)-(8,34) is one tile wide: two heroes cannot pass, plan who is inside before leaving.
+- `buy_spellbook` for the main hero and pick Knowledge/Wisdom: siege fights went as pure autofight with 10 mana.
+- Gems/crystal come from trade at 5000 gold each, wood/ore at 20:1: keep wood and ore for Angels (1 gem) and Archangels (3 gems). Mines in the east (Gem (31,26), Crystal (24,15)) must be kept flagged.
+- Unflagged/lost mines: blue re-flags them; recapture every few days with a cheap fast hero or income stagnates.
+- Parity is not enough: at 219k vs 228k I waited and lost the window. Strike lone weak enemy heroes (<0.7x) immediately.
