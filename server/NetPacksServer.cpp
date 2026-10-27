@@ -20,6 +20,8 @@
 #include "activities/BattleActivities.h"
 
 #include "../lib/CPlayerState.h"
+#include "../lib/GameLibrary.h"
+#include "../lib/entities/hero/CHero.h"
 #include "../lib/mapObjects/CGTownInstance.h"
 #include "../lib/mapObjects/CGHeroInstance.h"
 #include "../lib/gameState/CGameState.h"
@@ -44,11 +46,46 @@ void ApplyGhNetPackVisitor::visitGamePause(GamePause & pack)
 	result = true;
 }
 
+namespace
+{
+void journal(CGameHandler & gh, const CPackForServer & pack, const std::string & text);
+}
+
 void ApplyGhNetPackVisitor::visitEndTurn(EndTurn & pack)
 {
 	gh.throwIfWrongPlayer(connection, &pack);
 	gh.throwIfPlayerNotActive(connection, &pack);
+
+	// local experiment: state snapshot of the ending player for reviewing a human game
+	if(const auto * state = gh.gameInfo().tryGetPlayerState(pack.player))
+	{
+		std::string text = "snapshot gold " + std::to_string(state->resources[EGameResID::GOLD]) + " towns " + std::to_string(state->getTowns().size());
+		for(const auto * h : state->getHeroes())
+		{
+			text += " | " + h->getHeroType()->getNameTranslated() + " L" + std::to_string(h->level) + " " + std::to_string(h->getPrimSkillLevel(PrimarySkill::ATTACK)) + "/"
+				+ std::to_string(h->getPrimSkillLevel(PrimarySkill::DEFENSE)) + "/" + std::to_string(h->getPrimSkillLevel(PrimarySkill::SPELL_POWER)) + "/"
+				+ std::to_string(h->getPrimSkillLevel(PrimarySkill::KNOWLEDGE)) + " @" + std::to_string(h->visitablePos().x) + "," + std::to_string(h->visitablePos().y)
+				+ "," + std::to_string(h->visitablePos().z) + " xp" + std::to_string(h->exp) + " [";
+			for(const auto & [slot, stack] : h->Slots())
+				text += std::to_string(stack->getCount()) + " " + stack->getCreatureID().toEntity(LIBRARY)->getJsonKey() + "; ";
+			text += "]";
+		}
+		journal(gh, pack, text);
+	}
+
 	result = gh.turnOrder->onPlayerEndsTurn(pack.player);
+}
+
+
+namespace
+{
+
+/// Local experiment: one-line record of player actions for reviewing a human game.
+void journal(CGameHandler & gh, const CPackForServer & pack, const std::string & text)
+{
+	logGlobal->info("JOURNAL day %d %s: %s", gh.gameInfo().getCalendar().getCurrentDay(), pack.player.toString(), text);
+}
+
 }
 
 void ApplyGhNetPackVisitor::visitDismissHero(DismissHero & pack)
@@ -62,6 +99,12 @@ void ApplyGhNetPackVisitor::visitMoveHero(MoveHero & pack)
 {
 	gh.throwIfWrongOwner(connection, &pack, pack.hid);
 	gh.throwIfPlayerNotActive(connection, &pack);
+
+	if(!pack.path.empty())
+	{
+		const auto & end = pack.path.front();
+		journal(gh, pack, "move hero " + std::to_string(pack.hid.getNum()) + " to " + std::to_string(end.x) + "," + std::to_string(end.y) + "," + std::to_string(end.z));
+	}
 
 	for (auto const & dest : pack.path)
 	{
@@ -145,6 +188,7 @@ void ApplyGhNetPackVisitor::visitBuildStructure(BuildStructure & pack)
 	gh.throwIfWrongOwner(connection, &pack, pack.tid);
 	gh.throwIfPlayerNotActive(connection, &pack);
 
+	journal(gh, pack, "build " + std::to_string(pack.bid.getNum()) + " in town " + std::to_string(pack.tid.getNum()));
 	result = gh.buildStructure(pack.tid, pack.bid);
 }
 
@@ -169,6 +213,7 @@ void ApplyGhNetPackVisitor::visitRecruitCreatures(RecruitCreatures & pack)
 	gh.throwIfWrongPlayer(connection, &pack);
 	gh.throwIfPlayerNotActive(connection, &pack);
 	// ownership checks are inside recruitCreatures
+	journal(gh, pack, "recruit " + std::to_string(pack.amount) + " " + pack.crid.toEntity(LIBRARY)->getJsonKey() + " at " + std::to_string(pack.tid.getNum()));
 	result = gh.recruitCreatures(pack.tid, pack.dst, pack.crid, pack.amount, pack.level, pack.player);
 }
 
@@ -427,6 +472,7 @@ void ApplyGhNetPackVisitor::visitHireHero(HireHero & pack)
 	gh.throwIfWrongPlayer(connection, &pack);
 	gh.throwIfPlayerNotActive(connection, &pack);
 
+	journal(gh, pack, "hire hero " + std::to_string(pack.hid.getNum()) + " at town " + std::to_string(pack.tid.getNum()));
 	result = gh.heroPool->hireHero(pack.tid, pack.hid, pack.player, pack.nhid);
 }
 
@@ -438,6 +484,7 @@ void ApplyGhNetPackVisitor::visitBuildBoat(BuildBoat & pack)
 	if(gh.gameInfo().getPlayerRelations(gh.gameState().getOwner(pack.objid), pack.player) == PlayerRelations::ENEMIES)
 		gh.throwAndComplain(connection, "Can't build boat at enemy shipyard");
 
+	journal(gh, pack, "build boat at " + std::to_string(pack.objid.getNum()));
 	result = gh.buildBoat(pack.objid, pack.player);
 }
 

@@ -17,6 +17,7 @@ endif()
 
 # Adventure AI's
 add_subdirectory(EmptyAI)
+add_subdirectory(ClaudeBridge)
 
 if(ENABLE_NULLKILLER2_AI)
 	add_subdirectory(Nullkiller2)

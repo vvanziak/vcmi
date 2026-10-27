@@ -33,6 +33,7 @@ if(NOT ENABLE_MINIMAL_LIB)
 
 	if(ENABLE_CLIENT OR ENABLE_TEST)
 		target_link_libraries(vcmi PRIVATE EmptyAI)
+		target_link_libraries(vcmi PRIVATE ClaudeBridge)
 
 		if(ENABLE_NULLKILLER2_AI)
 			target_link_libraries(vcmi PRIVATE Nullkiller2)

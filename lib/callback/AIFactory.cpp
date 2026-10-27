@@ -25,6 +25,7 @@
 #  include "../../AI/MMAI/MMAI.h"
 #endif
 #include "../../AI/EmptyAI/CEmptyAI.h"
+#include "../../AI/ClaudeBridge/ClaudeBridgeAI.h"
 
 std::shared_ptr<CGlobalAI> AIFactory::createAdventureAI(const std::string & name)
 {
@@ -39,6 +40,13 @@ std::shared_ptr<CGlobalAI> AIFactory::createAdventureAI(const std::string & name
 #else
 		throw std::runtime_error("Nullkiller2 is not available in this build!");
 #endif
+	}
+
+	if(name == "ClaudeBridge")
+	{
+		auto ret = std::make_shared<ClaudeBridgeAI>();
+		ret->dllName = name;
+		return ret;
 	}
 
 	auto ret = std::make_shared<CEmptyAI>();
@@ -76,7 +84,7 @@ std::shared_ptr<CBattleGameInterface> AIFactory::createBattleAI(const std::strin
 
 bool AIFactory::isAvailableAdventureAI(const std::string & name)
 {
-	if(name == "EmptyAI")
+	if(name == "EmptyAI" || name == "ClaudeBridge")
 		return true;
 #ifdef ENABLE_NULLKILLER2_AI
 	if(name == "Nullkiller2")

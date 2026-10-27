@@ -255,6 +255,13 @@ void CClient::initPlayerInterfaces()
 		const PlayerColor spectatorInterfacePlayer = findPlayerColorForSpectatorInterface().value_or(PlayerColor(0));
 		installNewPlayerInterface(std::make_shared<CPlayerInterface>(spectatorInterfacePlayer), PlayerColor::SPECTATOR, true);
 	}
+	else if(claudeObservedColor())
+	{
+		// local experiment: a read-only ClaudeBridge watches the human player's view
+		playerEnvironments[PlayerColor::SPECTATOR] = std::make_shared<CPlayerEnvironment>(
+			PlayerColor::SPECTATOR, this, std::make_shared<CCallback>(gamestate, claudeObservedColor(), this));
+		installNewPlayerInterface(AIFactory::createAdventureAI("ClaudeBridge"), PlayerColor::SPECTATOR, false);
+	}
 
 	if(GAME->server().getAllClientPlayers(GAME->server().logicConnection->connectionID).count(PlayerColor::NEUTRAL))
 		installNewBattleInterface(AIFactory::createBattleAI(settings["ai"]["combatNeutralAI"].String()), PlayerColor::NEUTRAL);
@@ -262,8 +269,24 @@ void CClient::initPlayerInterfaces()
 	logNetwork->trace("Initialized player interfaces %d ms", GAME->server().th->getDiff());
 }
 
+std::optional<PlayerColor> CClient::claudeObservedColor() const
+{
+	const char * observed = std::getenv("VCMI_CLAUDE_SPECTATE");
+	if(!observed)
+		return std::nullopt;
+
+	for(const auto & playerState : gameState().players)
+		if(playerState.first.isValidPlayer() && GameConstants::PLAYER_COLOR_NAMES[playerState.first.getNum()] == std::string(observed))
+			return playerState.first;
+
+	return std::nullopt;
+}
+
 std::optional<PlayerColor> CClient::findPlayerColorForSpectatorInterface() const
 {
+	if(claudeObservedColor())
+		return claudeObservedColor();
+
 	// The adventure UI is not fully spectator-aware and still reads player-local state via CPlayerInterface::playerID.
 	for(const PlayerColor & color : gameState().actingPlayers)
 	{
@@ -282,6 +305,11 @@ std::optional<PlayerColor> CClient::findPlayerColorForSpectatorInterface() const
 
 std::string CClient::aiNameForPlayer(const PlayerSettings & ps, bool battleAI, bool alliedToHuman) const
 {
+	// local experiment: VCMI_CLAUDE_PLAYER=<color name> hands one slot to the ClaudeBridge AI
+	const char * claudePlayer = std::getenv("VCMI_CLAUDE_PLAYER");
+	if(!battleAI && claudePlayer && ps.color.isValidPlayer() && GameConstants::PLAYER_COLOR_NAMES[ps.color.getNum()] == std::string(claudePlayer))
+		return "ClaudeBridge";
+
 	if(ps.name.size() && AIFactory::isAvailableAdventureAI(ps.name))
 		return ps.name;
 
@@ -555,7 +583,14 @@ void CClient::battleStarted(const BattleID & battleID)
 	callBattleStart(PlayerColor::UNFLAGGABLE, BattleSide::RIGHT_SIDE);
 	if(settings["session"]["spectate"].Bool() && !settings["session"]["spectate-skip-battle"].Bool())
 		callBattleStart(PlayerColor::SPECTATOR, BattleSide::RIGHT_SIDE);
-	
+	else if(const auto observed = claudeObservedColor())
+	{
+		if(leftSide.color == *observed)
+			callBattleStart(PlayerColor::SPECTATOR, BattleSide::LEFT_SIDE);
+		else if(rightSide.color == *observed)
+			callBattleStart(PlayerColor::SPECTATOR, BattleSide::RIGHT_SIDE);
+	}
+
 	if(vstd::contains(playerint, leftSide.color) && playerint[leftSide.color]->human)
 		att = std::dynamic_pointer_cast<CPlayerInterface>(playerint[leftSide.color]);
 
