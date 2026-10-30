@@ -61,7 +61,7 @@ class ClaudeBridgeAI : public CAdventureAI
 	JsonNode dumpState(const JsonNode & args);
 	JsonNode statusReport(); ///< pending questions and events accumulated since the last report
 	JsonNode findPath(const CGHeroInstance * hero, const int3 & dst);
-	JsonNode moveHero(ObjectInstanceID heroID, const int3 & dst);
+	JsonNode moveHero(ObjectInstanceID heroID, const int3 & dst, bool avoidGuards);
 	JsonNode buildable(const CGTownInstance * town, bool all) const;
 	JsonNode build(const CGTownInstance * town, const std::string & building);
 	JsonNode recruit(const CGDwelling * dwelling, const CArmedInstance * destination, const std::string & creature, int count);

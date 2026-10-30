@@ -614,7 +614,7 @@ JsonNode ClaudeBridgeAI::execute(const std::string & cmd, const JsonNode & args)
 		return findPath(h, readPosition(args));
 	}
 	if(cmd == "move_hero")
-		return moveHero(ObjectInstanceID(requireInt(args, "hero")), readPosition(args));
+		return moveHero(ObjectInstanceID(requireInt(args, "hero")), readPosition(args), args["avoidGuards"].isBool() && args["avoidGuards"].Bool());
 	if(cmd == "end_turn")
 		return endTurn();
 
@@ -760,7 +760,7 @@ JsonNode ClaudeBridgeAI::findPath(const CGHeroInstance * hero, const int3 & dst)
 	return ret;
 }
 
-JsonNode ClaudeBridgeAI::moveHero(ObjectInstanceID heroID, const int3 & dst)
+JsonNode ClaudeBridgeAI::moveHero(ObjectInstanceID heroID, const int3 & dst, bool avoidGuards)
 {
 	JsonNode ret;
 	ret["reached"].Bool() = false;
@@ -811,6 +811,9 @@ JsonNode ClaudeBridgeAI::moveHero(ObjectInstanceID heroID, const int3 & dst)
 			const auto layer = nextNode.layer;
 			const bool useTransit = layer == EPathfindingLayer::AIR || layer == EPathfindingLayer::WATER;
 			std::vector<int3> steps;
+			const int3 noGuard(-1, -1, -1);
+			const int3 startGuard = cb->guardingCreaturePosition(start);
+			int3 refusedGuard = noGuard;
 
 			for(const auto & node : std::views::reverse(path.nodes))
 			{
@@ -819,11 +822,34 @@ JsonNode ClaudeBridgeAI::moveHero(ObjectInstanceID heroID, const int3 & dst)
 				if(node.isTeleportAction() || node.turns != 0 || node.layer != layer)
 					break;
 
+				const int3 guardPos = cb->guardingCreaturePosition(node.coord);
+				// entering a guarded tile starts the fight, so with avoidGuards the hero stops in front of it
+				if(avoidGuards && guardPos != noGuard && guardPos != startGuard)
+				{
+					refusedGuard = guardPos;
+					break;
+				}
+
 				steps.push_back(h->convertFromVisitablePos(node.coord));
-				if(cb->guardingCreaturePosition(node.coord) != int3(-1, -1, -1))
+				if(guardPos != noGuard)
 					break;
 				if(!cb->getVisitableObjs(node.coord).empty())
 					break;
+			}
+			if(steps.empty() && refusedGuard != noGuard)
+			{
+				ret["stopped"].String() = "guarded";
+				for(const auto * obj : cb->getVisitableObjs(refusedGuard))
+				{
+					if(const auto * monster = dynamic_cast<const CGCreature *>(obj))
+					{
+						ret["guard"]["id"].Integer() = monster->id.getNum();
+						ret["guard"]["name"].String() = objectName(monster);
+						ret["guard"]["pos"] = position(refusedGuard);
+						break;
+					}
+				}
+				break;
 			}
 			sendWithoutWaiting([&]() { cb->moveHero(h, steps, useTransit, layer); });
 		}
