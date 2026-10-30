@@ -43,6 +43,7 @@
 #include "../../lib/gameState/CGameState.h"
 #include "../../lib/TerrainHandler.h"
 #include "../../lib/mapObjects/CGDwelling.h"
+#include "../../lib/gameState/EVictoryLossCheckResult.h"
 #include "../../lib/mapObjects/CGCreature.h"
 #include "../../lib/mapObjects/CGHeroInstance.h"
 #include "../../lib/mapObjects/IObjectInterface.h"
@@ -323,7 +324,25 @@ bool ClaudeBridgeAI::waitTillIdle(std::chrono::milliseconds timeout)
 bool ClaudeBridgeAI::waitForTurn(std::chrono::milliseconds timeout)
 {
 	std::unique_lock lock(mx);
-	return cv.wait_for(lock, timeout, [this]() { return havingTurn || pendingBattle.has_value(); });
+	return cv.wait_for(lock, timeout, [this]() { return havingTurn || pendingBattle.has_value() || isGameOver; });
+}
+
+void ClaudeBridgeAI::gameOver(PlayerColor player, const EVictoryLossCheckResult & result)
+{
+	std::lock_guard lock(mx);
+	const std::string verdict = result.victory() ? "won" : result.loss() ? "lost" : "unknown";
+	if(player == playerID)
+	{
+		isGameOver = true;
+		gameOverInfo["won"].Bool() = result.victory();
+		gameOverInfo["lost"].Bool() = result.loss();
+		const std::string text = result.messageToSelf.toString(LIBRARY->staticTexts());
+		gameOverInfo["text"].String() = text;
+		events.push_back("game over, we " + verdict + ": " + text);
+	}
+	else
+		events.push_back("game over for " + std::string(GameConstants::PLAYER_COLOR_NAMES[player.getNum()]) + ": " + verdict);
+	cv.notify_all();
 }
 
 void ClaudeBridgeAI::yourTurn(QuestionID questionID)
@@ -484,6 +503,7 @@ JsonNode ClaudeBridgeAI::execute(const std::string & cmd, const JsonNode & args)
 		JsonNode ret;
 		ret["yourTurn"].Bool() = havingTurn;
 		ret["battle"].Bool() = pendingBattle.has_value();
+		ret["gameOver"].Bool() = isGameOver;
 		return ret;
 	}
 
@@ -733,6 +753,8 @@ JsonNode ClaudeBridgeAI::statusReport()
 	std::lock_guard lock(mx);
 	JsonNode ret;
 	ret["yourTurn"].Bool() = havingTurn;
+	if(isGameOver)
+		ret["gameOver"] = gameOverInfo;
 	ret["busy"].Bool() = heroMoving || battleOngoing || visitsInProgress != 0;
 	ret["battle"].Bool() = pendingBattle.has_value();
 

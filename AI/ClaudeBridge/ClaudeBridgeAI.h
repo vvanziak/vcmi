@@ -35,6 +35,8 @@ class ClaudeBridgeAI : public CAdventureAI
 	bool observer = false; ///< VCMI_CLAUDE_SPECTATE: read-only commands only
 	bool heroMoving = false;
 	bool battleOngoing = false;
+	bool isGameOver = false;
+	JsonNode gameOverInfo; ///< our own result once the game ends: won, lost, text
 	std::chrono::steady_clock::time_point lastEndTurn; ///< when end_turn was last accepted; resyncTurn waits 10 s after it
 	int visitsInProgress = 0;
 	std::map<QuestionID, JsonNode> pendingQuestions;
@@ -99,6 +101,7 @@ public:
 
 	void initGameInterface(std::shared_ptr<Environment> ENV, std::shared_ptr<CCallback> CB) override;
 	void yourTurn(QuestionID questionID) override;
+	void gameOver(PlayerColor player, const EVictoryLossCheckResult & result) override;
 	void playerBlocked(int reason, bool start) override;
 	void heroVisit(const CGHeroInstance * visitor, const CGObjectInstance * visitedObj, bool start) override;
 	void battleEnded() override;
