@@ -35,6 +35,7 @@ class ClaudeBridgeAI : public CAdventureAI
 	bool observer = false; ///< VCMI_CLAUDE_SPECTATE: read-only commands only
 	bool heroMoving = false;
 	bool battleOngoing = false;
+	std::chrono::steady_clock::time_point lastEndTurn; ///< when end_turn was last accepted; resyncTurn waits 10 s after it
 	int visitsInProgress = 0;
 	std::map<QuestionID, JsonNode> pendingQuestions;
 	struct PendingBattle
@@ -61,6 +62,7 @@ class ClaudeBridgeAI : public CAdventureAI
 	JsonNode dumpState(const JsonNode & args);
 	JsonNode statusReport(); ///< pending questions and events accumulated since the last report
 	JsonNode findPath(const CGHeroInstance * hero, const int3 & dst);
+	void resyncTurn();
 	JsonNode moveHero(ObjectInstanceID heroID, const int3 & dst, bool avoidGuards);
 	JsonNode buildable(const CGTownInstance * town, bool all) const;
 	JsonNode build(const CGTownInstance * town, const std::string & building);

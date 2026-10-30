@@ -475,7 +475,8 @@ JsonNode ClaudeBridgeAI::execute(const std::string & cmd, const JsonNode & args)
 	if(cmd == "wait_for_turn")
 	{
 		const auto timeout = std::chrono::milliseconds(args["timeoutMs"].isNumber() ? args["timeoutMs"].Integer() : 30000);
-		waitForTurn(timeout);
+		if(!waitForTurn(timeout))
+			resyncTurn();
 		std::lock_guard lock(mx);
 		JsonNode ret;
 		ret["yourTurn"].Bool() = havingTurn;
@@ -2104,6 +2105,25 @@ JsonNode ClaudeBridgeAI::answerQuestion(QuestionID id, int selection)
 	return statusReport();
 }
 
+void ClaudeBridgeAI::resyncTurn()
+{
+	bool serverSaysOurTurn;
+	{
+		std::shared_lock gsLock(CGameState::mutex);
+		serverSaysOurTurn = cb->isPlayerMakingTurn(playerID);
+	}
+
+	std::lock_guard lock(mx);
+	// the server answers end_turn asynchronously, so only a turn that stays ours well after end_turn counts as lost
+	const bool endTurnIsOld = std::chrono::steady_clock::now() - lastEndTurn > std::chrono::seconds(10);
+	if(!havingTurn && serverSaysOurTurn && endTurnIsOld && !pendingBattle && !battleOngoing)
+	{
+		havingTurn = true;
+		events.push_back("the server still waits for our turn: the earlier end_turn was dropped, turn flag restored");
+		cv.notify_all();
+	}
+}
+
 JsonNode ClaudeBridgeAI::endTurn()
 {
 	waitTillIdle(ACTION_TIMEOUT);
@@ -2111,7 +2131,11 @@ JsonNode ClaudeBridgeAI::endTurn()
 		std::lock_guard lock(mx);
 		if(!pendingQuestions.empty())
 			throw std::runtime_error("answer pending questions first");
+		// the server drops the request while a battle is running, and the turn would stay open with no way to end it
+		if(pendingBattle || battleOngoing)
+			throw std::runtime_error("a battle is in progress: finish it first (battle_act)");
 		havingTurn = false;
+		lastEndTurn = std::chrono::steady_clock::now();
 	}
 	cb->endTurn();
 	return statusReport();
