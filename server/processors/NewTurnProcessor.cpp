@@ -40,6 +40,15 @@
 
 #include <vstd/RNG.h>
 
+// local experiment: the ClaudeBridge slot (VCMI_CLAUDE_PLAYER=<color>) gets the events meant for human players
+static bool affectedAsHuman(CGameHandler * gameHandler, PlayerColor color)
+{
+	if(gameHandler->gameInfo().getPlayerState(color)->isHuman())
+		return true;
+	const char * claudePlayer = std::getenv("VCMI_CLAUDE_PLAYER");
+	return claudePlayer && color.isValidPlayer() && GameConstants::PLAYER_COLOR_NAMES[color.getNum()] == std::string(claudePlayer);
+}
+
 NewTurnProcessor::NewTurnProcessor(CGameHandler * gameHandler)
 	:gameHandler(gameHandler)
 {
@@ -55,7 +64,7 @@ void NewTurnProcessor::handleTimeEvents(PlayerColor color)
 		if (!event.affectsDifficulty(gameHandler->gameInfo().getStartInfo()->getDifficulty()))
 			continue;
 
-		if (!event.affectsPlayer(color, gameHandler->gameInfo().getPlayerState(color)->isHuman()))
+		if (!event.affectsPlayer(color, affectedAsHuman(gameHandler, color)))
 			continue;
 
 		if (auto * dispatcher = gameHandler->gameState().getMapEventDispatcher(); dispatcher && !event.scriptHandler.empty())
@@ -108,7 +117,7 @@ void NewTurnProcessor::handleTownEvents(const CGTownInstance * town)
 			continue;
 		}
 
-		if (!event.affectsPlayer(player, gameHandler->gameInfo().getPlayerState(player)->isHuman()))
+		if (!event.affectsPlayer(player, affectedAsHuman(gameHandler, player)))
 			continue;
 
 		if (auto * dispatcher = gameHandler->gameState().getMapEventDispatcher(); dispatcher && !event.scriptHandler.empty())
