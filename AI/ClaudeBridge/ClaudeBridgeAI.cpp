@@ -300,6 +300,9 @@ void ClaudeBridgeAI::addQuestion(QuestionID id, JsonNode description)
 
 void ClaudeBridgeAI::answerLater(QuestionID id, int selection)
 {
+	// the turn start comes with question -1: there is nothing to answer, and CCallback logs an error for it
+	if(id == QuestionID(-1))
+		return;
 	asyncTasks->run([this, id, selection]()
 	{
 		std::shared_lock gsLock(CGameState::mutex);
