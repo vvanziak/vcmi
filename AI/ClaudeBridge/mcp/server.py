@@ -28,12 +28,13 @@ POS = {"x": INT, "y": INT, "z": INT}
 TOOLS = {
     "game_state": ("get_state", "State of our player: date, resources, heroes, towns (with buildings and recruitable creatures), visible map objects, pending questions and new events. Pass hero and radius to list only map objects near that hero.", {"hero": INT, "radius": INT}, []),
     "game_status": ("status", "Pending questions and events since the last report; cheap.", {}, []),
+    "ping": ("ping", "Check that the bridge connection to the game works. Returns pong; no game state.", {}, []),
     "wait_for_turn": ("wait_for_turn", "Block until our turn starts or one of our units needs battle orders (the result has yourTurn and battle flags), or the timeout passes. Call after end_turn.", {"timeoutMs": INT}, []),
     "find_path": ("find_path", "Check whether a hero can reach a tile and how many turns it takes.", {"hero": INT, **POS}, ["hero", "x", "y", "z"]),
     "move_hero": ("move_hero", "Move a hero toward a tile along the engine pathfinder, until it arrives, runs out of movement, or a question/battle interrupts. Battles are fought by BattleAI. Targeting the tile the hero already stands on visits the object there (like the Space key): use it to re-enter a Subterranean Gate or visit a building again.", {"hero": INT, **POS}, ["hero", "x", "y", "z"]),
     "get_buildable": ("get_buildable", "Buildings a town can build now (allowed, no_resources, built_today). Pass all=true to include ones with missing requirements.", {"town": INT, "all": {"type": "boolean"}}, ["town"]),
     "build": ("build", "Build a structure in a town (one per town per day). 'building' is the key from get_buildable.", {"town": INT, "building": {"type": "string"}}, ["town", "building"]),
-    "recruit": ("recruit", "Recruit creatures. In our town: pass town (goes to the visiting hero, else the garrison; with garrison=true always to the town garrison, which has its own 7 slots). At a map dwelling the hero stands on: pass object and hero.", {"town": INT, "object": INT, "hero": INT, "creature": {"type": "string"}, "count": INT, "garrison": {"type": "boolean"}}, ["creature", "count"]),
+    "recruit": ("recruit", "Recruit creatures. In one of our towns: pass town=<town id> (required) plus creature and count; recruits go to the visiting hero if that town has one, else to the town garrison; with garrison=true always to the town garrison (its own 7 slots). At a map dwelling the hero stands on: pass object=<dwelling id> and hero=<hero id> instead of town; if the dwelling's recruitment dialog is open (game_status), creature and count alone suffice.", {"town": INT, "object": INT, "hero": INT, "creature": {"type": "string"}, "count": INT, "garrison": {"type": "boolean"}}, ["creature", "count"]),
     "move_army": ("move_army", "Move every stack of one of our heroes/towns into another (merging same creatures). 'from' and 'to' are object ids; both must be adjacent (hero in or next to the town, or two heroes together).", {"from": INT, "to": INT}, ["from", "to"]),
     "swap_stacks": ("swap_stacks", "Merge or swap one stack with another slot. Slots are 0-6. With 'count', moves that many creatures (a split) and leaves the rest, so a hero can keep 1 creature and hand over the others.", {"from": INT, "to": INT, "fromSlot": INT, "toSlot": INT, "count": INT}, ["from", "to", "fromSlot", "toSlot"]),
     "trade": ("trade", "Trade resources at a town marketplace: give N of one resource for another (wood, mercury, ore, sulfur, crystal, gems, gold). Amount is rounded down to the rate's base quantity; the result shows the rate. One Marketplace gives poor rates.", {"town": INT, "give": {"type": "string"}, "get": {"type": "string"}, "amount": INT}, ["town", "give", "get", "amount"]),
@@ -94,16 +95,72 @@ class Bridge:
 
 bridge = Bridge()
 
+# ids of our towns and heroes, refreshed from get_state replies; they let town- and
+# hero-bearing commands work even when the MCP client drops optional integer arguments
+TOWN_CMDS = {"build", "recruit", "trade", "get_tavern", "buy_hero", "get_buildable", "thieves_guild"}
+known_towns = []
+known_heroes = []
+
+
+def ids_from_state(result, key):
+    items = result.get(key) if isinstance(result, dict) else None
+    if isinstance(items, list):
+        return [x.get("id") for x in items if isinstance(x, dict) and isinstance(x.get("id"), int)]
+    return None
+
+
+def update_known(result):
+    ids = ids_from_state(result, "towns")
+    if ids is not None:
+        known_towns[:] = ids
+    ids = ids_from_state(result, "heroes")
+    if ids is not None:
+        known_heroes[:] = ids
+
+
+def refresh_state():
+    try:
+        reply = bridge.call("get_state", {})
+    except OSError:
+        return
+    if reply.get("ok"):
+        update_known(reply.get("result"))
+
+
+def fill_defaults(cmd, args):
+    """Resolves ids the model may have dropped: a lone town, and for recruit the dwelling
+    of an open recruitment dialog plus the lone hero as receiver."""
+    if cmd == "recruit" and "town" not in args and "object" not in args:
+        try:
+            status = bridge.call("status", {})
+        except OSError:
+            status = None
+        if status and status.get("ok"):
+            for q in (status.get("result") or {}).get("pendingQuestions") or []:
+                if q.get("kind") == "recruitment" and isinstance(q.get("object"), int):
+                    args["object"] = q["object"]
+                    if "hero" not in args:
+                        refresh_state()
+                        if len(known_heroes) == 1:
+                            args["hero"] = known_heroes[0]
+                    break
+    if cmd not in TOWN_CMDS or "town" in args or "object" in args:
+        return args
+    if not known_towns:
+        refresh_state()
+    if len(known_towns) == 1:
+        args["town"] = known_towns[0]
+    return args
+
 
 def tool_list():
-    return [
-        {
-            "name": name,
-            "description": description,
-            "inputSchema": {"type": "object", "properties": props, "required": required},
-        }
-        for name, (_, description, props, required) in TOOLS.items()
-    ]
+    tools = []
+    for name, (_, description, props, required) in TOOLS.items():
+        schema = {"type": "object", "properties": props, "required": required}
+        if name == "recruit":
+            schema["anyOf"] = [{"required": ["town"]}, {"required": ["object", "hero"]}]
+        tools.append({"name": name, "description": description, "inputSchema": schema})
+    return tools
 
 
 def next_turn():
@@ -124,6 +181,22 @@ def next_turn():
     return {"content": [{"type": "text", "text": json.dumps(result, separators=(",", ":"))}]}
 
 
+def tool_usage(name):
+    _, _, props, required = TOOLS[name]
+    sig = ", ".join(f"{k}:{v.get('type', 'any')}" for k, v in props.items())
+    return f"usage: {name}({sig}); required: {', '.join(required) if required else 'none'}"
+
+
+def validate_args(name, arguments):
+    args = arguments or {}
+    for key in TOOLS[name][3]:
+        if key not in args:
+            return f"missing required argument '{key}'"
+    if name == "recruit" and "town" not in args and ("object" not in args or "hero" not in args):
+        return "recruit needs either town=<town id> or object=<dwelling id> plus hero=<hero id>"
+    return None
+
+
 def call_tool(name, arguments):
     if name == "next_turn":
         try:
@@ -131,14 +204,22 @@ def call_tool(name, arguments):
         except OSError as e:
             return {"content": [{"type": "text", "text": f"cannot reach the game on ports 37100-37107: {e}"}], "isError": True}
     if name not in TOOLS:
-        return {"content": [{"type": "text", "text": f"unknown tool {name}"}], "isError": True}
+        return {"content": [{"type": "text", "text": f"unknown tool {name}; known: {', '.join(TOOLS)}"}], "isError": True}
     cmd = TOOLS[name][0]
+    args = dict(arguments or {})
+    if cmd != "get_state":
+        args = fill_defaults(cmd, args)
+    problem = validate_args(name, args)
+    if problem:
+        return {"content": [{"type": "text", "text": f"error: {problem} | sent args: {json.dumps(args)} | {tool_usage(name)}"}], "isError": True}
     try:
-        reply = bridge.call(cmd, arguments or {})
+        reply = bridge.call(cmd, args)
     except OSError as e:
-        return {"content": [{"type": "text", "text": f"cannot reach the game on ports 37100-37107: {e}"}], "isError": True}
+        return {"content": [{"type": "text", "text": f"cannot reach the game on ports 37100-37107: {e} | {tool_usage(name)}"}], "isError": True}
     if not reply.get("ok"):
-        return {"content": [{"type": "text", "text": "error: " + str(reply.get("error"))}], "isError": True}
+        return {"content": [{"type": "text", "text": "error: " + str(reply.get("error")) + " | sent args: " + json.dumps(args) + " | " + tool_usage(name)}], "isError": True}
+    if cmd == "get_state":
+        update_known(reply.get("result"))
     return {"content": [{"type": "text", "text": json.dumps(reply.get("result"), separators=(",", ":"))}]}
 
 

@@ -49,7 +49,13 @@ void BridgeServer::run()
 		boost::system::error_code ec;
 		acceptor.accept(socket, ec);
 		if(ec)
-			return;
+		{
+			if(stopping)
+				return;
+			// a pending connection that was closed before accept must not kill the accept loop
+			logAi->warn("ClaudeBridge: accept failed: %s", ec.message());
+			continue;
+		}
 
 		{
 			std::lock_guard lock(socketMutex);

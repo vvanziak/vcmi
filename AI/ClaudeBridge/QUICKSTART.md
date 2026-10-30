@@ -3,7 +3,20 @@
 Record: 4 wins (game 18 on Crimson and Clover, day ~103) (easy d44, medium d78) and many losses with Dungeon/Jeddite on "Dungeon Keeper" (36x36, z1 home at (15,15), z0 blue Rampart town (17,18), gate (25,26,z1) <-> (14,4,z0)). Layout is fixed, resource piles are randomized per game.
 
 ## Strategy state
-Keep `notes/current-game.md` (goals, needs vs sources, explored/unexplored). Read it at the start of every session and every game week; update it when a mine is found or a goal changes (human feedback, game 17).
+Keep `notes/current-game.md`: read it at the start of every session, rewrite it (never append) when a mine is found or lost, a goal changes, or the human gives advice. Keep it under ~40 lines, in this shape:
+- GAME (written once): map, my faction/town, each opponent's faction and start position, win condition.
+- NEEDS vs SOURCES: one row per resource (gold, wood, ore, mercury, sulfur, crystal, gems) with the mine position and whether it is flagged. A need without a source is the next scouting target.
+- PLAN (max 5 lines): current goal, what gates it, the next concrete step.
+- DEFERRED: valuables that cannot be taken NOW, each as position + unlock condition (boat, gate, army size). Review every turn; act the moment an unlock appears.
+- Do not record what a tool can re-query: stack ratios, enemy positions, garrisons, movement points. Re-`inspect`/`threats` instead; a stored ratio is stale by the next turn.
+
+## Situational awareness every turn (game 25 lesson)
+- `threats` + `thieves_guild` EVERY turn, not weekly. Track EVERY player's growth, not just the current opponent - in an FFA the player you are not fighting wins the timing race (red snowballed 172k while blue fought tan).
+- Review DEFERRED in `notes/current-game.md` every turn, e.g. "Gold Mine (60,14) - sealed from surface; unlock = underground gate or Summon Boat". Game 25 lost the Gold Mine and 3 artifacts to sleep here.
+- Never trust a scouted fact across turns without a re-check: enemy heroes move, garrisons change, ratios drift. Re-`inspect` before every fight; re-`threats` before every march.
+- Captured towns get a garrison or the hero inside them THE SAME NIGHT (game 25: empty Whistledale fell overnight, then the lone army + only hero got caught in the field; no second hero, no second town, elimination).
+- Sitting in a castle is never a strategy (user, game 25 post-mortem): a parked army compounds nothing - no necromancy, no neutral farming, no XP, no artifacts, no Diplomacy joins, no mines; weekly recruits cap out and gold idles. The wall bonus is a fixed multiplier, the attacker's lead compounds without bound. Play OUT: farm stacks you beat at <=0.5, take mines, pick up free joins, force the enemy to react. The endgame foe camping a town is a target to be drawn out or starved, not a reason to wait for a perfect ratio.
+- The answer to an unaccounted enemy stack is intel (`threats`/`inspect`) and a REAL garrison at home - not passivity. March with information; leave a garrison that can actually hold (game 25: 12.9k vs a 70k siege taught the cost of a token garrison on the only town).
 
 ## Setup
 - All-AI game: `cd /Users/valerii/Projects/vcmi-build/bin && VCMI_CLAUDE_PLAYER=red nohup ./vcmiclient --nointro --onlyAI --spectate --spectate-skip-battle --logLocation <scratchpad>/logs &` (pkill -9 vcmiclient first). User picks difficulty and starts the map, runs `/mcp`, says "play".
@@ -51,7 +64,7 @@ Do not leave him idle in town: he follows the main hero picking up resources/min
 - Against the human: do not wait inside the castle with an army half his size; he merges all heroes. Castle defence did not close a 2.2x gap (game 16).
 
 ## Lessons from game 17 (large map, lost day 99)
-- At game start write `notes/current-game.md`: needs (gold, ore, wood, crystal, gems, mercury, sulfur) vs sources; re-read weekly. Every need without a source is the next scouting target.
+- At game start write `notes/current-game.md` (see Strategy state); re-read it weekly.
 - Economy chain first on a normal start: Town Hall -> Marketplace -> Blacksmith -> Mage Guild 1 -> City Hall (+2000) -> Citadel -> Castle -> Capitol; dwellings after.
 - Scout by walking toward unexplored tiles; a hero far from the castle can be caught by a hero with 3x his army in one turn. Keep the main stack at home until it beats the strongest roaming AI hero, or keep a cheap scout hero alone and let it flag mines.
 - Spend gold every turn; the stock accumulates if skipped but the army is needed before the AI merges its heroes.
