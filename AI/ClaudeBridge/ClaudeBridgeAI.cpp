@@ -648,6 +648,11 @@ JsonNode ClaudeBridgeAI::execute(const std::string & cmd, const JsonNode & args)
 		const auto * to = dynamic_cast<const CArmedInstance *>(cb->getObj(ObjectInstanceID(requireInt(args, "to"))));
 		if(!from || !to || from->getOwner() != playerID || to->getOwner() != playerID)
 			throw std::runtime_error("from and to must be our heroes or towns");
+		// the server refuses stack changes between objects that do not stand together, once per stack
+		const int3 fromPos = from->visitablePos();
+		const int3 toPos = to->visitablePos();
+		if(fromPos.z != toPos.z || std::max(std::abs(fromPos.x - toPos.x), std::abs(fromPos.y - toPos.y)) > 1)
+			throw std::runtime_error("from and to are not together: a hero must be in the town, or two heroes on adjacent tiles");
 		if(cmd == "move_army")
 			return moveArmy(from, to);
 		return swapStacks(from, to, SlotID(requireInt(args, "fromSlot")), SlotID(requireInt(args, "toSlot")), args["count"].isNumber() ? args["count"].Integer() : 0);
@@ -793,6 +798,15 @@ JsonNode ClaudeBridgeAI::moveHero(ObjectInstanceID heroID, const int3 & dst, boo
 
 	for(int batch = 0; batch < MAX_MOVEMENT_BATCHES; batch++)
 	{
+		{
+			// the server drops movement while a battle waits for orders and complains to the player
+			std::lock_guard lock(mx);
+			if(pendingBattle || battleOngoing)
+			{
+				ret["stopped"].String() = "battle waiting for orders";
+				break;
+			}
+		}
 		const auto * h = cb->getHero(heroID);
 		if(!h || h->getOwner() != playerID)
 		{
