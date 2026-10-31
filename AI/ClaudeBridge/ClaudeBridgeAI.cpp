@@ -1725,6 +1725,9 @@ JsonNode ClaudeBridgeAI::targets(const CGHeroInstance * hero, size_t limit)
 		entry["owner"].Integer() = obj->getOwner().getNum();
 		entry["steps"].Integer() = path.nodes.size() - 1;
 		entry["turns"].Integer() = path.nodes.front().turns;
+		// per hero for places like a Learning Stone, per player for weekly ones like a Windmill; both reset by the game itself
+		entry["visitedByHero"].Bool() = obj->wasVisited(hero);
+		entry["visitedByUs"].Bool() = obj->wasVisited(playerID);
 		if(const auto * monster = dynamic_cast<const CGCreature *>(obj); monster && !monster->stacks.empty())
 		{
 			const JsonNode info = monsterInfo(monster, hero);
