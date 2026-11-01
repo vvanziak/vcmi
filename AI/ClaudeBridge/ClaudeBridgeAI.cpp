@@ -1623,6 +1623,10 @@ JsonNode ClaudeBridgeAI::inspect(const CGObjectInstance * object, const CGHeroIn
 {
 	if(const auto * h = dynamic_cast<const CGHeroInstance *>(object))
 	{
+		// getHeroInfo logs an error for a hero standing in fog
+		if(h->getOwner() != playerID && !cb->isVisible(h->visitablePos()))
+			throw std::runtime_error("that hero is not visible now");
+
 		InfoAboutHero info;
 		if(!cb->getHeroInfo(h, info))
 			throw std::runtime_error("no information about that hero");
@@ -1644,6 +1648,9 @@ JsonNode ClaudeBridgeAI::inspect(const CGObjectInstance * object, const CGHeroIn
 	}
 	if(const auto * t = dynamic_cast<const CGTownInstance *>(object))
 	{
+		if(!cb->isVisible(t))
+			throw std::runtime_error("that town is not visible now");
+
 		InfoAboutTown info;
 		if(!cb->getTownInfo(t, info))
 			throw std::runtime_error("no information about that town");
