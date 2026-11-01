@@ -1145,10 +1145,10 @@ JsonNode ClaudeBridgeAI::scenario() const
 	const auto * header = cb->getMapHeader();
 	const auto * start = cb->getStartInfo();
 
-	ret["name"].String() = header->name.toString(LIBRARY->staticTexts());
-	ret["description"].String() = header->description.toString(LIBRARY->staticTexts());
-	ret["victory"].String() = header->victoryMessage.toString(LIBRARY->staticTexts());
-	ret["defeat"].String() = header->defeatMessage.toString(LIBRARY->staticTexts());
+	ret["name"].String() = header->name.toString(header->texts.get());
+	ret["description"].String() = header->description.toString(header->texts.get());
+	ret["victory"].String() = header->victoryMessage.toString(header->texts.get());
+	ret["defeat"].String() = header->defeatMessage.toString(header->texts.get());
 	ret["size"] = position(cb->getMapSize());
 	ret["difficulty"].Integer() = start->difficulty; // 0 easy .. 4 impossible
 	ret["you"].String() = GameConstants::PLAYER_COLOR_NAMES[playerID.getNum()];
@@ -1767,7 +1767,15 @@ JsonNode ClaudeBridgeAI::inspect(const CGObjectInstance * object, const CGHeroIn
 	}
 	if(const auto * m = dynamic_cast<const CGCreature *>(object))
 		return monsterInfo(m, compareTo);
-	throw std::runtime_error("only heroes, towns and monsters can be inspected");
+	if(const auto * g = dynamic_cast<const CGGarrison *>(object))
+	{
+		const InfoAboutArmy info(g, false);
+		JsonNode ret = armyInfo(info);
+		ret["type"].String() = "garrison";
+		addComparison(ret, armyValue(info), compareTo);
+		return ret;
+	}
+	throw std::runtime_error("only heroes, towns, monsters and garrisons can be inspected");
 }
 
 JsonNode ClaudeBridgeAI::threats(const CGHeroInstance * compareTo) const
