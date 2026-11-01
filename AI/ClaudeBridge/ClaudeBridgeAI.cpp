@@ -15,6 +15,8 @@
 #include "../../lib/AsyncRunner.h"
 #include "../../lib/CCreatureHandler.h"
 #include "../../lib/CPlayerState.h"
+#include "../../lib/StartInfo.h"
+#include "../../lib/mapping/CMapHeader.h"
 #include "../../lib/CSkillHandler.h"
 #include "../../lib/CBonusTypeHandler.h"
 #include "../../lib/GameLibrary.h"
@@ -490,7 +492,7 @@ JsonNode ClaudeBridgeAI::execute(const std::string & cmd, const JsonNode & args)
 
 	if(observer)
 	{
-		static const std::set<std::string> readOnly = {"get_state", "status", "artifacts", "thieves_guild", "lookup", "battle_state", "inspect", "threats", "targets", "find_path", "tile_info", "get_tavern", "get_buildable", "market_rates"};
+		static const std::set<std::string> readOnly = {"get_state", "status", "artifacts", "thieves_guild", "lookup", "battle_state", "inspect", "threats", "targets", "find_path", "tile_info", "get_tavern", "get_buildable", "market_rates", "scenario"};
 		if(!readOnly.count(cmd))
 			throw std::runtime_error("spectator mode: '" + cmd + "' is not allowed, the human plays this player");
 	}
@@ -530,6 +532,8 @@ JsonNode ClaudeBridgeAI::execute(const std::string & cmd, const JsonNode & args)
 			equipArtifact(hero, requireInt(args, "from"), args["to"].isNumber() ? std::optional<int>(args["to"].Integer()) : std::nullopt);
 		return artifacts(hero);
 	}
+	if(cmd == "scenario")
+		return scenario();
 	if(cmd == "thieves_guild")
 	{
 		const auto * town = cb->getObj(ObjectInstanceID(requireInt(args, "town")));
@@ -1132,6 +1136,36 @@ JsonNode ClaudeBridgeAI::trade(const CGTownInstance * market, GameResID give, Ga
 	ret["rate"]["get"].Integer() = getBase;
 	ret["resources"] = resources(cb->getResourceAmount());
 	ret["status"] = statusReport();
+	return ret;
+}
+
+JsonNode ClaudeBridgeAI::scenario() const
+{
+	JsonNode ret;
+	const auto * header = cb->getMapHeader();
+	const auto * start = cb->getStartInfo();
+
+	ret["name"].String() = header->name.toString(LIBRARY->staticTexts());
+	ret["description"].String() = header->description.toString(LIBRARY->staticTexts());
+	ret["victory"].String() = header->victoryMessage.toString(LIBRARY->staticTexts());
+	ret["defeat"].String() = header->defeatMessage.toString(LIBRARY->staticTexts());
+	ret["size"] = position(cb->getMapSize());
+	ret["difficulty"].Integer() = start->difficulty; // 0 easy .. 4 impossible
+	ret["you"].String() = GameConstants::PLAYER_COLOR_NAMES[playerID.getNum()];
+
+	ret["players"].Vector();
+	for(const auto & [color, settings] : start->playerInfos)
+	{
+		JsonNode entry;
+		entry["color"].String() = GameConstants::PLAYER_COLOR_NAMES[color.getNum()];
+		entry["name"].String() = settings.name;
+		entry["human"].Bool() = !settings.connectedPlayerIDs.empty();
+		if(settings.castle.hasValue())
+			entry["faction"].String() = settings.castle.toEntity(LIBRARY)->getJsonKey();
+		if(const auto * team = cb->getPlayerTeam(color))
+			entry["team"].Integer() = team->id.getNum();
+		ret["players"].Vector().push_back(entry);
+	}
 	return ret;
 }
 

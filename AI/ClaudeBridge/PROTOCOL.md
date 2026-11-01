@@ -22,6 +22,7 @@ Reply: `{"id": 1, "ok": true, "result": ...}` or `{"id": 1, "ok": false, "error"
 | `move_army`, `swap_stacks` | from, to, fromSlot, toSlot, count? | Army transfers |
 | `upgrade`, `buy_spellbook` | hero, slot / hero | Hero actions in a town |
 | `trade` | town, give, get, amount | Marketplace |
+| `scenario` | | What the scenario information window shows: map name and description, victory and defeat texts, size, difficulty, our colour, and every player's colour, name, human flag, faction and team (read-only) |
 | `market_rates` | town | What a marketplace charges: `marketplace` flag and `rates`, each `give` resource, `get` resource, `giveAmount` for `getAmount` (read-only) |
 | `get_tavern`, `buy_hero` | town, hero | Tavern |
 | `build_boat` | shipyard | Buy a boat |

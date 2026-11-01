@@ -95,6 +95,7 @@ class ClaudeBridgeAI : public CAdventureAI
 	JsonNode artifacts(const CGHeroInstance * hero) const;
 	void equipArtifact(const CGHeroInstance * hero, int from, std::optional<int> to);
 	JsonNode thievesGuild(const CGObjectInstance * town) const;
+	JsonNode scenario() const;
 	JsonNode lookup(const std::string & kind, const std::string & query, const std::string & factionFilter) const;
 	JsonNode monsterInfo(const CGCreature * monster, const CGHeroInstance * compareTo) const;
 	JsonNode battleAct(const JsonNode & args);
