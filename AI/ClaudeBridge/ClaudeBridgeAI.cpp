@@ -44,6 +44,7 @@
 #include "../../lib/TerrainHandler.h"
 #include "../../lib/mapObjects/CGDwelling.h"
 #include "../../lib/gameState/EVictoryLossCheckResult.h"
+#include "../../lib/networkPacks/PacksForClientBattle.h"
 #include "../../lib/mapObjects/CGCreature.h"
 #include "../../lib/mapObjects/CGHeroInstance.h"
 #include "../../lib/mapObjects/IObjectInterface.h"
@@ -1228,7 +1229,25 @@ void ClaudeBridgeAI::battleStart(const BattleID & battleID, const CCreatureSet *
 	{
 		std::lock_guard lock(mx);
 		autoFight = false;
-		events.push_back("battle started");
+		BattleSummary summary;
+		summary.ourSide = side;
+		const CGHeroInstance * ourHero = side == BattleSide::ATTACKER ? hero1 : hero2;
+		const CGHeroInstance * enemyHero = side == BattleSide::ATTACKER ? hero2 : hero1;
+		const CCreatureSet * ours = side == BattleSide::ATTACKER ? army1 : army2;
+		const CCreatureSet * theirs = side == BattleSide::ATTACKER ? army2 : army1;
+		auto units = [](const CCreatureSet * army)
+		{
+			int total = 0;
+			if(army)
+				for(const auto & [slot, stack] : army->Slots())
+					total += stack->getCount();
+			return total;
+		};
+		summary.ourHero = ourHero ? ourHero->getHeroType()->getNameTranslated() : "";
+		summary.enemy = enemyHero ? enemyHero->getHeroType()->getNameTranslated() + " (" + GameConstants::PLAYER_COLOR_NAMES[enemyHero->getOwner().getNum()] + ")" : "a stack or garrison";
+		summary.where = std::to_string(tile.x) + "," + std::to_string(tile.y);
+		battles[battleID] = summary;
+		events.push_back("battle started at " + summary.where + ": " + (ourHero ? summary.ourHero + " " : "our army ") + std::to_string(units(ours)) + " units, " + (side == BattleSide::ATTACKER ? "we attack " : "we are attacked by ") + summary.enemy + " " + std::to_string(units(theirs)) + " units");
 		if(observer)
 			pendingBattle = PendingBattle{battleID, 0};
 	}
@@ -1238,6 +1257,27 @@ void ClaudeBridgeAI::battleStart(const BattleID & battleID, const CCreatureSet *
 void ClaudeBridgeAI::battleEnd(const BattleID & battleID, const BattleResult * br, QuestionID questionID)
 {
 	CAdventureAI::battleEnd(battleID, br, questionID);
+	{
+		std::lock_guard lock(mx);
+		const auto found = battles.find(battleID);
+		if(found != battles.end() && br)
+		{
+			const BattleSummary & summary = found->second;
+			const BattleSide enemySide = summary.ourSide == BattleSide::ATTACKER ? BattleSide::DEFENDER : BattleSide::ATTACKER;
+			auto lost = [&](BattleSide side)
+			{
+				int total = 0;
+				for(const auto & [creature, count] : br->casualties[side])
+					total += count;
+				return total;
+			};
+			const bool won = br->winner == summary.ourSide;
+			const char * how = br->result == EBattleResult::ESCAPE ? " (the loser fled)" : br->result == EBattleResult::SURRENDER ? " (the loser surrendered)" : "";
+			events.push_back(std::string("battle at ") + summary.where + " ended: we " + (br->winner == BattleSide::NONE ? "drew" : won ? "won" : "lost") + how + "; we lost " + std::to_string(lost(summary.ourSide)) + " units, " + summary.enemy + " lost " + std::to_string(lost(enemySide)) + " units"
+				+ (!won && !summary.ourHero.empty() && br->result == EBattleResult::NORMAL ? "; " + summary.ourHero + " is dead or captured" : ""));
+			battles.erase(found);
+		}
+	}
 	// the server asks the only human-flagged side to accept the result of a battle against a neutral or AI side
 	if(questionID != QuestionID::NONE)
 		answerLater(questionID, 0);

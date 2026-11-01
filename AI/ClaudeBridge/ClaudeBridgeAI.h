@@ -10,6 +10,7 @@
 #pragma once
 
 #include "../../lib/callback/CAdventureAI.h"
+#include "../../lib/battle/BattleSide.h"
 #include "../../lib/json/JsonNode.h"
 
 class AsyncRunner;
@@ -50,6 +51,14 @@ class ClaudeBridgeAI : public CAdventureAI
 	std::set<int> requestsInFlight; ///< ids of our requests the server has not answered yet
 	std::optional<PendingBattle> pendingBattle; ///< a unit of ours is waiting for orders
 	bool autoFight = false; ///< BattleAI plays the rest of the current battle
+	struct BattleSummary
+	{
+		BattleSide ourSide = BattleSide::ATTACKER;
+		std::string ourHero; ///< empty when no hero of ours fights
+		std::string enemy; ///< hero name or "a stack"
+		std::string where;
+	};
+	std::map<BattleID, BattleSummary> battles;
 	std::vector<std::string> events;
 
 	void addEvent(const std::string & text);
