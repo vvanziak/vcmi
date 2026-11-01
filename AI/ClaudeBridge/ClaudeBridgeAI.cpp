@@ -490,7 +490,7 @@ JsonNode ClaudeBridgeAI::execute(const std::string & cmd, const JsonNode & args)
 
 	if(observer)
 	{
-		static const std::set<std::string> readOnly = {"get_state", "status", "artifacts", "thieves_guild", "lookup", "battle_state", "inspect", "threats", "targets", "find_path", "tile_info", "get_tavern", "get_buildable"};
+		static const std::set<std::string> readOnly = {"get_state", "status", "artifacts", "thieves_guild", "lookup", "battle_state", "inspect", "threats", "targets", "find_path", "tile_info", "get_tavern", "get_buildable", "market_rates"};
 		if(!readOnly.count(cmd))
 			throw std::runtime_error("spectator mode: '" + cmd + "' is not allowed, the human plays this player");
 	}
@@ -680,6 +680,29 @@ JsonNode ClaudeBridgeAI::execute(const std::string & cmd, const JsonNode & args)
 	if(!t || t->getOwner() != playerID)
 		throw std::runtime_error("no such town");
 
+	if(cmd == "market_rates")
+	{
+		JsonNode ret;
+		ret["marketplace"].Bool() = t->hasBuiltResourceMarketplace();
+		ret["rates"].Vector();
+		if(!t->hasBuiltResourceMarketplace())
+			return ret;
+		for(int give = 0; give < GameConstants::RESOURCE_QUANTITY; give++)
+			for(int get = 0; get < GameConstants::RESOURCE_QUANTITY; get++)
+			{
+				int giveBase = 1;
+				int getBase = 1;
+				if(give == get || !t->getOffer(give, get, giveBase, getBase, EMarketMode::RESOURCE_RESOURCE))
+					continue;
+				JsonNode entry;
+				entry["give"].String() = GameConstants::RESOURCE_NAMES[give];
+				entry["get"].String() = GameConstants::RESOURCE_NAMES[get];
+				entry["giveAmount"].Integer() = giveBase;
+				entry["getAmount"].Integer() = getBase;
+				ret["rates"].Vector().push_back(entry);
+			}
+		return ret;
+	}
 	if(cmd == "trade")
 		return trade(t, readResource(args, "give"), readResource(args, "get"), requireInt(args, "amount"));
 	if(cmd == "get_tavern")
