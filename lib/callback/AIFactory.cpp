@@ -25,11 +25,61 @@
 #  include "../../AI/MMAI/MMAI.h"
 #endif
 #include "../../AI/EmptyAI/CEmptyAI.h"
-#include "../../AI/ClaudeBridge/ClaudeBridgeAI.h"
+
+namespace
+{
+std::map<std::string, std::function<std::shared_ptr<CGlobalAI>()>> & externalAIs()
+{
+	static std::map<std::string, std::function<std::shared_ptr<CGlobalAI>()>> registry;
+	return registry;
+}
+
+/// "blue=Name,green=Name" as a map from colour name to AI name
+std::map<std::string, std::string> parseAssignments(const char * variable)
+{
+	std::map<std::string, std::string> result;
+	const char * value = std::getenv(variable);
+	if(!value)
+		return result;
+
+	std::stringstream stream(value);
+	std::string item;
+	while(std::getline(stream, item, ','))
+	{
+		const auto separator = item.find('=');
+		if(separator != std::string::npos && separator > 0 && separator + 1 < item.size())
+			result[item.substr(0, separator)] = item.substr(separator + 1);
+	}
+	return result;
+}
+}
+
+bool AIFactory::registerAdventureAI(const std::string & name, std::function<std::shared_ptr<CGlobalAI>()> creator)
+{
+	return externalAIs().emplace(name, std::move(creator)).second;
+}
+
+std::string AIFactory::slotOverride(const std::string & colorName)
+{
+	static const auto slots = parseAssignments("VCMI_AI_SLOTS");
+	const auto found = slots.find(colorName);
+	return found == slots.end() ? std::string() : found->second;
+}
+
+std::pair<std::string, std::string> AIFactory::observerOverride()
+{
+	static const auto observers = parseAssignments("VCMI_AI_OBSERVE");
+	if(observers.empty())
+		return {};
+	return { observers.begin()->first, observers.begin()->second };
+}
 
 std::shared_ptr<CGlobalAI> AIFactory::createAdventureAI(const std::string & name)
 {
 	logGlobal->info("Creating adventure AI %s", name);
+
+	if(const auto external = externalAIs().find(name); external != externalAIs().end())
+		return external->second();
 
 	if(name == "Nullkiller2")
 	{
@@ -40,13 +90,6 @@ std::shared_ptr<CGlobalAI> AIFactory::createAdventureAI(const std::string & name
 #else
 		throw std::runtime_error("Nullkiller2 is not available in this build!");
 #endif
-	}
-
-	if(name == "ClaudeBridge")
-	{
-		auto ret = std::make_shared<ClaudeBridgeAI>();
-		ret->dllName = name;
-		return ret;
 	}
 
 	auto ret = std::make_shared<CEmptyAI>();
@@ -84,7 +127,7 @@ std::shared_ptr<CBattleGameInterface> AIFactory::createBattleAI(const std::strin
 
 bool AIFactory::isAvailableAdventureAI(const std::string & name)
 {
-	if(name == "EmptyAI" || name == "ClaudeBridge")
+	if(name == "EmptyAI" || externalAIs().count(name))
 		return true;
 #ifdef ENABLE_NULLKILLER2_AI
 	if(name == "Nullkiller2")

@@ -10,6 +10,8 @@
 #include "StdInc.h"
 #include "NewTurnProcessor.h"
 
+#include "../../lib/callback/AIFactory.h"
+
 #include "HeroPoolProcessor.h"
 
 #include "../CGameHandler.h"
@@ -40,13 +42,12 @@
 
 #include <vstd/RNG.h>
 
-// local experiment: the ClaudeBridge slot (VCMI_CLAUDE_PLAYER=<color>) gets the events meant for human players
+// a slot handed to an external AI (VCMI_AI_SLOTS) gets the events meant for human players
 static bool affectedAsHuman(CGameHandler * gameHandler, PlayerColor color)
 {
 	if(gameHandler->gameInfo().getPlayerState(color)->isHuman())
 		return true;
-	const char * claudePlayer = std::getenv("VCMI_CLAUDE_PLAYER");
-	return claudePlayer && color.isValidPlayer() && GameConstants::PLAYER_COLOR_NAMES[color.getNum()] == std::string(claudePlayer);
+	return color.isValidPlayer() && !AIFactory::slotOverride(GameConstants::PLAYER_COLOR_NAMES[color.getNum()]).empty();
 }
 
 NewTurnProcessor::NewTurnProcessor(CGameHandler * gameHandler)

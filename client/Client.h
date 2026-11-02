@@ -205,6 +205,6 @@ public:
 	void removeGUI() const;
 
 private:
-	std::optional<PlayerColor> claudeObservedColor() const;
+	std::optional<PlayerColor> observedColor() const;
 	std::optional<PlayerColor> findPlayerColorForSpectatorInterface() const;
 };

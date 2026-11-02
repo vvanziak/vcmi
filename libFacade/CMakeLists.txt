@@ -33,7 +33,10 @@ if(NOT ENABLE_MINIMAL_LIB)
 
 	if(ENABLE_CLIENT OR ENABLE_TEST)
 		target_link_libraries(vcmi PRIVATE EmptyAI)
-		target_link_libraries(vcmi PRIVATE ClaudeBridge)
+		get_property(vcmiExtraAIs GLOBAL PROPERTY VCMI_EXTRA_AI_TARGETS)
+		if(vcmiExtraAIs)
+			target_link_libraries(vcmi PRIVATE ${vcmiExtraAIs})
+		endif()
 
 		if(ENABLE_NULLKILLER2_AI)
 			target_link_libraries(vcmi PRIVATE Nullkiller2)
