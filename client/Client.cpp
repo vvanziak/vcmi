@@ -231,7 +231,7 @@ void CClient::initPlayerInterfaces()
 		if(!vstd::contains(playerint, color))
 		{
 			logNetwork->info("Preparing interface for player %s", color.toString());
-			if(playerInfo.second.isControlledByAI() || settings["session"]["onlyai"].Bool())
+			if(playerInfo.second.isControlledByAI() || settings["session"]["onlyai"].Bool() || !AIFactory::slotOverride(GameConstants::PLAYER_COLOR_NAMES[color.getNum()]).empty())
 			{
 				bool alliedToHuman = false;
 				for(const auto & allyInfo : gameState().getStartInfo()->playerInfos)
@@ -255,6 +255,13 @@ void CClient::initPlayerInterfaces()
 		const PlayerColor spectatorInterfacePlayer = findPlayerColorForSpectatorInterface().value_or(PlayerColor(0));
 		installNewPlayerInterface(std::make_shared<CPlayerInterface>(spectatorInterfacePlayer), PlayerColor::SPECTATOR, true);
 	}
+	else if(observedColor())
+	{
+		// VCMI_AI_OBSERVE: an external AI gets a read-only view of one player
+		playerEnvironments[PlayerColor::SPECTATOR] = std::make_shared<CPlayerEnvironment>(
+			PlayerColor::SPECTATOR, this, std::make_shared<CCallback>(gamestate, observedColor(), this));
+		installNewPlayerInterface(AIFactory::createAdventureAI(AIFactory::observerOverride().second), PlayerColor::SPECTATOR, false);
+	}
 
 	if(GAME->server().getAllClientPlayers(GAME->server().logicConnection->connectionID).count(PlayerColor::NEUTRAL))
 		installNewBattleInterface(AIFactory::createBattleAI(settings["ai"]["combatNeutralAI"].String()), PlayerColor::NEUTRAL);
@@ -262,8 +269,24 @@ void CClient::initPlayerInterfaces()
 	logNetwork->trace("Initialized player interfaces %d ms", GAME->server().th->getDiff());
 }
 
+std::optional<PlayerColor> CClient::observedColor() const
+{
+	const std::string observed = AIFactory::observerOverride().first;
+	if(observed.empty())
+		return std::nullopt;
+
+	for(const auto & playerState : gameState().players)
+		if(playerState.first.isValidPlayer() && GameConstants::PLAYER_COLOR_NAMES[playerState.first.getNum()] == observed)
+			return playerState.first;
+
+	return std::nullopt;
+}
+
 std::optional<PlayerColor> CClient::findPlayerColorForSpectatorInterface() const
 {
+	if(observedColor())
+		return observedColor();
+
 	// The adventure UI is not fully spectator-aware and still reads player-local state via CPlayerInterface::playerID.
 	for(const PlayerColor & color : gameState().actingPlayers)
 	{
@@ -282,6 +305,14 @@ std::optional<PlayerColor> CClient::findPlayerColorForSpectatorInterface() const
 
 std::string CClient::aiNameForPlayer(const PlayerSettings & ps, bool battleAI, bool alliedToHuman) const
 {
+	// VCMI_AI_SLOTS="blue=Name,green=Name" hands slots to the named AIs, whatever the lobby says about them
+	if(!battleAI && ps.color.isValidPlayer())
+	{
+		const std::string slotAI = AIFactory::slotOverride(GameConstants::PLAYER_COLOR_NAMES[ps.color.getNum()]);
+		if(!slotAI.empty())
+			return slotAI;
+	}
+
 	if(ps.name.size() && AIFactory::isAvailableAdventureAI(ps.name))
 		return ps.name;
 
@@ -555,7 +586,14 @@ void CClient::battleStarted(const BattleID & battleID)
 	callBattleStart(PlayerColor::UNFLAGGABLE, BattleSide::RIGHT_SIDE);
 	if(settings["session"]["spectate"].Bool() && !settings["session"]["spectate-skip-battle"].Bool())
 		callBattleStart(PlayerColor::SPECTATOR, BattleSide::RIGHT_SIDE);
-	
+	else if(const auto observed = observedColor())
+	{
+		if(leftSide.color == *observed)
+			callBattleStart(PlayerColor::SPECTATOR, BattleSide::LEFT_SIDE);
+		else if(rightSide.color == *observed)
+			callBattleStart(PlayerColor::SPECTATOR, BattleSide::RIGHT_SIDE);
+	}
+
 	if(vstd::contains(playerint, leftSide.color) && playerint[leftSide.color]->human)
 		att = std::dynamic_pointer_cast<CPlayerInterface>(playerint[leftSide.color]);
 

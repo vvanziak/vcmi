@@ -10,6 +10,8 @@
 #include "StdInc.h"
 #include "NewTurnProcessor.h"
 
+#include "../../lib/callback/AIFactory.h"
+
 #include "HeroPoolProcessor.h"
 
 #include "../CGameHandler.h"
@@ -42,6 +44,14 @@
 
 #include <vstd/RNG.h>
 
+// a slot handed to an external AI (VCMI_AI_SLOTS) gets the events meant for human players
+static bool affectedAsHuman(CGameHandler * gameHandler, PlayerColor color)
+{
+	if(gameHandler->gameInfo().getPlayerState(color)->isHuman())
+		return true;
+	return color.isValidPlayer() && !AIFactory::slotOverride(GameConstants::PLAYER_COLOR_NAMES[color.getNum()]).empty();
+}
+
 NewTurnProcessor::NewTurnProcessor(CGameHandler * gameHandler)
 	:gameHandler(gameHandler)
 {
@@ -57,7 +67,7 @@ void NewTurnProcessor::handleTimeEvents(PlayerColor color)
 		if (!event.affectsDifficulty(gameHandler->gameInfo().getStartInfo()->getDifficulty()))
 			continue;
 
-		if (!event.affectsPlayer(color, gameHandler->gameInfo().getPlayerState(color)->isHuman()))
+		if (!event.affectsPlayer(color, affectedAsHuman(gameHandler, color)))
 			continue;
 
 		if (auto * dispatcher = gameHandler->gameState().getMapEventDispatcher(); dispatcher && !event.scriptHandler.empty())
@@ -110,7 +120,7 @@ void NewTurnProcessor::handleTownEvents(const CGTownInstance * town)
 			continue;
 		}
 
-		if (!event.affectsPlayer(player, gameHandler->gameInfo().getPlayerState(player)->isHuman()))
+		if (!event.affectsPlayer(player, affectedAsHuman(gameHandler, player)))
 			continue;
 
 		if (auto * dispatcher = gameHandler->gameState().getMapEventDispatcher(); dispatcher && !event.scriptHandler.empty())
