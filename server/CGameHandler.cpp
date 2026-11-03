@@ -517,6 +517,8 @@ void CGameHandler::init(StartInfo *si, Load::ProgressAccumulator & progressTrack
 	CMapService mapService;
 	gs = std::make_shared<CGameState>();
 	int requestedSeed = settings["server"]["seed"].Integer();
+	if(const char * envSeed = std::getenv("VCMI_SEED"))
+		requestedSeed = std::atoi(envSeed);
 	randomizer = std::make_unique<GameRandomizer>(*gs);
 	if (requestedSeed != 0)
 		randomizer->setSeed(requestedSeed);
