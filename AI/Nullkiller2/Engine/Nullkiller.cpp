@@ -607,6 +607,39 @@ HeroLockedReason Nullkiller::getHeroLockedReason(const CGHeroInstance * hero) co
 	return found != lockedHeroes.end() ? found->second : HeroLockedReason::NOT_LOCKED;
 }
 
+void Nullkiller::refreshState()
+{
+	resetState();
+	invalidatePathfinderData();
+	updateState();
+}
+
+Goals::TTaskVec Nullkiller::previewPlan(int & priorityTier, Goals::TGoalVec & candidates, EvaluationContextMap & contexts)
+{
+	refreshState();
+
+	candidates.clear();
+	decompose(candidates, sptr(CaptureObjectsBehavior()), 1);
+	decompose(candidates, sptr(ClusterBehavior()), 10);
+	decompose(candidates, sptr(DefenceBehavior()), 10);
+	decompose(candidates, sptr(EscapeBehavior()), 1);
+	decompose(candidates, sptr(GatherArmyBehavior()), 10);
+	decompose(candidates, sptr(ExplorationBehavior()), 10);
+
+	contexts = buildEvaluationContexts(candidates);
+	for(int prio = PriorityEvaluator::PriorityTier::INSTAKILL; prio <= PriorityEvaluator::PriorityTier::MAX_PRIORITY_TIER; ++prio)
+	{
+		auto selected = buildPlanAndFilter(candidates, contexts, prio);
+		if(!selected.empty())
+		{
+			priorityTier = prio;
+			return selected;
+		}
+	}
+	priorityTier = -1;
+	return {};
+}
+
 void Nullkiller::makeTurn()
 {
 	pathfinderTurnStorageMisses.store(0);

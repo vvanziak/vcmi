@@ -140,6 +140,11 @@ public:
 	/// An empty result makes the planner try the next tier. Unset: behaviour unchanged.
 	using PlanHook = std::function<void(int priorityTier, int pass, Goals::TTaskVec & selected, const Goals::TGoalVec & candidates, const EvaluationContextMap & contexts)>;
 	PlanHook planHook;
+	/// Rebuilds the planner's state (hit map, paths, clusters) from the game as it is now; nothing is executed.
+	void refreshState();
+	/// A read-only look at the plan (for an observer's queries): refreshes the state and runs the planner without executing anything.
+	/// Returns the tasks of the first priority tier that has any; the candidates and their evaluation contexts are filled in.
+	Goals::TTaskVec previewPlan(int & priorityTier, Goals::TGoalVec & candidates, EvaluationContextMap & contexts);
 
 	Nullkiller();
 	virtual ~Nullkiller();
