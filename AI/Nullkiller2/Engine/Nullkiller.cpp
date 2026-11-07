@@ -646,6 +646,8 @@ void Nullkiller::makeTurn()
 		{
 			prioOfTask = prio;
 			selectedTasks = buildPlanAndFilter(tasks, evaluationContexts, prio);
+			if(planHook && !selectedTasks.empty())
+				planHook(prio, pass, selectedTasks, tasks, evaluationContexts);
 			if (!selectedTasks.empty())
 			{
 				// Activate for deep debugging, otherwise too noisy even for trace level 2

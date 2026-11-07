@@ -135,6 +135,12 @@ public:
 	std::mutex aiStateMutex;
 	mutable ThreadInterruption makingTurnInterruption;
 
+	using EvaluationContextMap = std::map<const Goals::AbstractGoal *, EvaluationContext>;
+	/// Called once per priority tier that produced a plan, before the plan is executed; may drop, reorder or re-weight (priority) the selected tasks.
+	/// An empty result makes the planner try the next tier. Unset: behaviour unchanged.
+	using PlanHook = std::function<void(int priorityTier, int pass, Goals::TTaskVec & selected, const Goals::TGoalVec & candidates, const EvaluationContextMap & contexts)>;
+	PlanHook planHook;
+
 	Nullkiller();
 	virtual ~Nullkiller();
 	void init(const std::shared_ptr<CCallback> & cbInput, AIGateway * aiGwInput);
@@ -185,7 +191,6 @@ private:
 	const CGHeroInstance * findRequiredTownDefender(const CGTownInstance * town) const;
 	void decompose(Goals::TGoalVec & results, const Goals::TSubgoal& behavior, int decompositionMaxDepth) const;
 	Goals::TTask choseBestTask(Goals::TGoalVec & tasks) const;
-	using EvaluationContextMap = std::map<const Goals::AbstractGoal *, EvaluationContext>;
 	EvaluationContextMap buildEvaluationContexts(const Goals::TGoalVec & tasks) const;
 	Goals::TTaskVec buildPlanAndFilter(
 		Goals::TGoalVec & tasks,
