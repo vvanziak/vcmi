@@ -140,6 +140,13 @@ public:
 	/// An empty result makes the planner try the next tier. Unset: behaviour unchanged.
 	using PlanHook = std::function<void(int priorityTier, int pass, Goals::TTaskVec & selected, const Goals::TGoalVec & candidates, const EvaluationContextMap & contexts)>;
 	PlanHook planHook;
+	/// Called in the town-management loop (what to build, which troops to buy, which hero to hire) after the candidates are collected and before the best one is chosen;
+	/// may erase candidates. Unset: behaviour unchanged.
+	using EconomyHook = std::function<void(int pass, int iteration, Goals::TGoalVec & candidates)>;
+	EconomyHook economyHook;
+	/// Called after a town-management task ran (success tells whether it worked).
+	using ExecutedHook = std::function<void(const Goals::TTask & task, bool success)>;
+	ExecutedHook executedHook;
 	/// Rebuilds the planner's state (hit map, paths, clusters) from the game as it is now; nothing is executed.
 	void refreshState();
 	/// A read-only look at the plan (for an observer's queries): refreshes the state and runs the planner without executing anything.
