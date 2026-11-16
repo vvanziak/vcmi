@@ -679,8 +679,6 @@ void Nullkiller::makeTurn()
 		{
 			prioOfTask = prio;
 			selectedTasks = buildPlanAndFilter(tasks, evaluationContexts, prio);
-			if(planHook && !selectedTasks.empty())
-				planHook(prio, pass, selectedTasks, tasks, evaluationContexts);
 			if (!selectedTasks.empty())
 			{
 				// Activate for deep debugging, otherwise too noisy even for trace level 2
@@ -849,9 +847,6 @@ bool Nullkiller::updateStateAndExecutePriorityPass(Goals::TGoalVec & tempResults
 		decompose(tempResults, sptr(BuyArmyBehavior()), 1);
 		decompose(tempResults, sptr(BuildingBehavior()), 1);
 
-		if(economyHook)
-			economyHook(passIndex, i, tempResults);
-
 		bestPrioPassTask = choseBestTask(tempResults);
 
 		if(bestPrioPassTask->priority > 0)
@@ -864,16 +859,10 @@ bool Nullkiller::updateStateAndExecutePriorityPass(Goals::TGoalVec & tempResults
 			{
 				logAi->error("Nullkiller::updateStateAndExecutePriorityPass Skipping priorityPass due to unverified hero: %s", heroPtr.nameOrDefault());
 			}
-			else
+			else if(!executeTask(bestPrioPassTask))
 			{
-				const bool executed = executeTask(bestPrioPassTask);
-				if(executedHook)
-					executedHook(bestPrioPassTask, executed);
-				if(!executed)
-				{
-					logAi->warn("Task failed to execute during priority pass. Continuing with regular turn planning.");
-					break;
-				}
+				logAi->warn("Task failed to execute during priority pass. Continuing with regular turn planning.");
+				break;
 			}
 
 			updateState();

@@ -57,10 +57,5 @@ namespace NK2AI
 		bool isUpdateHitmapOnTileReveal() const { return updateHitmapOnTileReveal; }
 		bool isOpenMap() const { return openMap; }
 
-		void setMaxGoldPressure(float value) { maxGoldPressure = value; }
-		void setRetreatThresholdRelative(float value) { retreatThresholdRelative = value; }
-		void setRetreatThresholdAbsolute(float value) { retreatThresholdAbsolute = value; }
-		void setSafeAttackRatio(float value) { safeAttackRatio = value; }
-		void setMaxArmyLossTarget(float value) { maxArmyLossTarget = value; }
 	};
 }
