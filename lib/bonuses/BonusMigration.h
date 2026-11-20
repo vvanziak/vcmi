@@ -33,6 +33,9 @@ void migrateHeroGrantedAttacks(Bonus & bonus);
 /// declaring them fails loudly rather than by quietly doing nothing.
 void warnIfRetired(const JsonNode & ability, const TextIdentifier & descriptionID);
 
+/// UNUSED_<name>, the inert type to parse a retired bonus as so that the rest of its mod still loads; empty if the type is not retired
+std::string retiredPlaceholder(const std::string & bonusType);
+
 /// Logs a warning, once per mod, for bonus types that still work but have a better replacement.
 void warnIfDeprecated(const JsonNode & ability);
 

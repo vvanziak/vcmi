@@ -259,6 +259,12 @@ void BonusMigration::warnIfRetired(const JsonNode & ability, const TextIdentifie
 		logMod->warn("Bonus %s no longer does anything and was not converted - declare %s instead. Description: '%s'", ability["type"].String(), replacement, descriptionID.get());
 }
 
+std::string BonusMigration::retiredPlaceholder(const std::string & bonusType)
+{
+	std::string name = withoutScope(bonusType);
+	return lookup(retiredWithoutMigration, name).empty() ? std::string() : "UNUSED_" + name;
+}
+
 void BonusMigration::warnIfDeprecated(const JsonNode & ability)
 {
 	std::string_view replacement = lookup(softDeprecated, withoutScope(ability["type"].String()));
