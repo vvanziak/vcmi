@@ -288,11 +288,11 @@ bool CCreature::isDoubleWide() const
  */
 bool CCreature::isGood () const
 {
-	return LIBRARY->factions()->getById(faction)->getAlignment() == EAlignment::GOOD;
+	return alignment == EAlignment::GOOD;
 }
 EAlignment CCreature::getAlignment () const
 {
-	return LIBRARY->factions()->getById(faction)->getAlignment();
+	return alignment;
 }
 
 /**
@@ -301,7 +301,7 @@ EAlignment CCreature::getAlignment () const
  */
 bool CCreature::isEvil () const
 {
-	return LIBRARY->factions()->getById(faction)->getAlignment() == EAlignment::EVIL;
+	return alignment == EAlignment::EVIL;
 }
 
 si32 CCreature::maxAmount(const TResources &res) const //how many creatures can be bought
@@ -348,33 +348,9 @@ bool CCreature::isMyDirectUpgrade(const CCreature *anotherCre) const
 	return vstd::contains(upgrades, anotherCre->getId());
 }
 
-bool CCreature::isMyDirectOrIndirectUpgrade(const CCreature *anotherCre) const
+bool CCreature::isUpgradeOf(const CreatureID & base) const
 {
-	std::set<CreatureID> foundUpgrades;
-	std::vector<CreatureID> upgradesToTest;
-
-	upgradesToTest.push_back(getId());
-
-	while (!upgradesToTest.empty())
-	{
-		CreatureID testedID = upgradesToTest.back();
-		const CCreature * testedPtr = testedID.toCreature();
-
-		upgradesToTest.pop_back();
-
-		for (const auto & upgrade : testedPtr->upgrades)
-		{
-			if (upgrade == anotherCre->getId())
-				return true;
-
-			if (foundUpgrades.count(upgrade))
-				continue;
-
-			upgradesToTest.push_back(upgrade);
-			foundUpgrades.insert(upgrade);
-		}
-	}
-	return false;
+	return upgradedFrom.contains(base);
 }
 
 std::string CCreature::nodeName() const
@@ -417,7 +393,6 @@ void CCreature::serializeJson(JsonSerializeFormat & handler)
 }
 
 CCreatureHandler::CCreatureHandler(LibraryLoadContext & context)
-	: expAfterUpgrade(0)
 {
 	loadCommanders(context);
 }
@@ -437,7 +412,7 @@ void CCreatureHandler::loadCommanders(LibraryLoadContext & context)
 	auto configResource = JsonPath::builtin("config/commanders.json");
 
 	std::string modSource = context.lib.modh->findResourceOrigin(configResource);
-	JsonNode data(configResource);
+	JsonNode data(configResource, context.filesystem);
 	data.setModScope(modSource);
 
 	const JsonNode & config = data; // switch to const data accessors
@@ -630,10 +605,10 @@ std::shared_ptr<CCreature> CCreatureHandler::loadFromJson(LibraryLoadContext & c
 	}
 
 	if (!node["disabled"].Bool() &&
-		!CResourceHandler::get()->existsResource(cre->animDefName) &&
-		!CResourceHandler::get()->existsResource(cre->animDefName.toType<EResType::JSON>()) &&
-		!CResourceHandler::get()->existsResource(cre->animDefName.addPrefix("SPRITES/")) &&
-		!CResourceHandler::get()->existsResource(cre->animDefName.addPrefix("SPRITES/").toType<EResType::JSON>()))
+		!context.filesystem.existsResource(cre->animDefName) &&
+		!context.filesystem.existsResource(cre->animDefName.toType<EResType::JSON>()) &&
+		!context.filesystem.existsResource(cre->animDefName.addPrefix("SPRITES/")) &&
+		!context.filesystem.existsResource(cre->animDefName.addPrefix("SPRITES/").toType<EResType::JSON>()))
 		throw ModLoadingException(scope, "creature " + cre->getJsonKey() + " has no combat animation but is not marked as special!" );
 
 	JsonNode advMapFile = node["graphics"]["map"];
@@ -675,56 +650,6 @@ const std::vector<std::string> & CCreatureHandler::getTypeNames() const
 {
 	static const std::vector<std::string> typeNames = { "creature" };
 	return typeNames;
-}
-
-void CCreatureHandler::loadCrExpMod(LibraryLoadContext & context)
-{
-	if (context.lib.engineSettings()->getBoolean(EGameSettings::MODULE_STACK_EXPERIENCE)) 	//reading default stack experience values
-	{
-		//Calculate rank exp values, formula appears complicated bu no parsing needed
-		expRanks.resize(8);
-		int dif = 0;
-		int it = 8000; //ignore name of this variable
-		expRanks[0].push_back(it);
-		for (int j = 1; j < 10; ++j) //used for tiers 8-10, and all other probably
-		{
-			expRanks[0].push_back(expRanks[0][j-1] + it + dif);
-			dif += it/5;
-		}
-		for (int i = 1; i < 8; ++i) //used for tiers 1-7
-		{
-			dif = 0;
-			it = 1000 * i;
-			expRanks[i].push_back(it);
-			for (int j = 1; j < 10; ++j)
-			{
-				expRanks[i].push_back(expRanks[i][j-1] + it + dif);
-				dif += it/5;
-			}
-		}
-
-		CLegacyConfigParser expBonParser(TextPath::builtin("DATA/CREXPMOD.TXT"), *context.lib.modh);
-
-		expBonParser.endLine(); //header
-
-		maxExpPerBattle.resize(8);
-		for (int i = 1; i < 8; ++i)
-		{
-			expBonParser.readString(); //index
-			expBonParser.readString(); //float multiplier -> hardcoded
-			expBonParser.readString(); //ignore upgrade mod? ->hardcoded
-			expBonParser.readString(); //already calculated
-
-			maxExpPerBattle[i] = static_cast<ui32>(expBonParser.readNumber());
-			expRanks[i].push_back(expRanks[i].back() + static_cast<ui32>(expBonParser.readNumber()));
-
-			expBonParser.endLine();
-		}
-		//exp for tier >7, rank 11
-		expRanks[0].push_back(147000);
-		expAfterUpgrade = 75; //percent
-		maxExpPerBattle[0] = maxExpPerBattle[7];
-	}
 }
 
 void CCreatureHandler::loadAnimationInfo(LibraryLoadContext & context, std::vector<JsonNode> &h3Data) const
@@ -989,6 +914,25 @@ const ResourceSet & CCreatureHandler::getCommanderResurrectionPrice(const CCreat
 
 void CCreatureHandler::afterLoadFinalization(LibraryLoadContext & context)
 {
+	// limiters read these when bonuses are evaluated below, before the global library is assigned
+	for(auto & creature : objects)
+	{
+		if (!creature)
+			continue;
+
+		creature->alignment = context.lib.factions()->getById(creature->getFactionID())->getAlignment();
+
+		std::vector<CreatureID> upgradesToTest(creature->upgrades.begin(), creature->upgrades.end());
+		while(!upgradesToTest.empty())
+		{
+			const auto & upgrade = objects.at(upgradesToTest.back().getNum());
+			upgradesToTest.pop_back();
+
+			if(upgrade->upgradedFrom.insert(creature->getId()).second)
+				upgradesToTest.insert(upgradesToTest.end(), upgrade->upgrades.begin(), upgrade->upgrades.end());
+		}
+	}
+
 	for(auto & creature : objects)
 	{
 		if (!creature)

@@ -407,6 +407,8 @@ void CMapFormatJson::serializeHeader(JsonSerializeFormat & handler)
 	//todo: support arbitrary percentage
 	handler.serializeEnum("difficulty", mapHeader->difficulty, HeaderDetail::difficultyMap);
 
+	mapHeader->allowedDifficulties.serializeJson(handler, "allowedDifficulties");
+
 	serializePlayerInfo(handler);
 
 	handler.serializeLIC("allowedHeroes", &HeroTypeID::decode, &HeroTypeID::encode, LIBRARY->heroh->getDefaultAllowed(), mapHeader->allowedHeroes);
@@ -935,7 +937,14 @@ void CMapLoaderJson::readHeader(const bool complete)
 	mapHeader->version = EMapFormat::VCMI;//todo: new version field
 
 	//loading mods
-	mapHeader->mods = ModVerificationInfo::jsonDeserializeList(header["mods"]);
+	if(header["mods"].isStruct())
+	{
+		// maps saved before 1.3 list only identifiers of required mods, without versions
+		for(const auto & modID : header["mods"]["allOf"].Vector())
+			mapHeader->mods[modID.String()].name = modID.String();
+	}
+	else
+		mapHeader->mods = ModVerificationInfo::jsonDeserializeList(header["mods"]);
 
 	auto getLevel = [](const std::string& name) -> int {
 		if (name == "surface")

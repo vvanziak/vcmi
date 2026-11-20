@@ -26,7 +26,16 @@ bool migrateBonus(const JsonNode & ability, JsonNode & migrated);
 /// Same conversion, for a bonus restored from a save predating the ability becoming a script.
 bool migrateCombatAbility(Bonus & bonus);
 
+/// Converts a saved HERO_GRANTS_ATTACKS into ADDITIONAL_ATTACK limited to the creature it named.
+void migrateHeroGrantedAttacks(Bonus & bonus);
+
 /// Logs a warning for abilities that were retired without a conversion, so that content still
 /// declaring them fails loudly rather than by quietly doing nothing.
 void warnIfRetired(const JsonNode & ability, const TextIdentifier & descriptionID);
+
+/// Logs a warning, once per mod, for bonus types that still work but have a better replacement.
+void warnIfDeprecated(const JsonNode & ability);
+
+/// Name of the combat script that replaced this retired bonus type, or empty view if there is none
+std::string_view retiredAbilityScript(const std::string & bonusType);
 }

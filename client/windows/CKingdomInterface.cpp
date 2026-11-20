@@ -515,7 +515,17 @@ void CKingdomInterface::generateObjectsList(const std::vector<const CGObjectInst
 	idToImage[std::make_pair( 20, 0)] = 86;//Conflux
 	idToImage[std::make_pair( 87, 0)] = 87;//Harbor
 
-	std::map<int, OwnedObjectInfo> visibleObjects;
+	// dwellings are grouped by creature and ordered by town and creature level, special objects follow them
+	using ObjectSortKey = std::tuple<bool, bool, FactionID, int32_t, CreatureID, int>;
+
+	const auto dwellingKey = [](const CGDwelling * dwelling) -> ObjectSortKey
+	{
+		const auto * creature = dwelling->providedCreatures().at(0).toCreature();
+		const bool withoutTown = !creature->getFactionID().toFaction()->hasTown();
+		return {false, withoutTown, creature->getFactionID(), creature->getLevel(), creature->getId(), 0};
+	};
+
+	std::map<ObjectSortKey, OwnedObjectInfo> visibleObjects;
 	for(const CGObjectInstance * object : ownedObjects)
 	{
 		if(!object)
@@ -528,7 +538,7 @@ void CKingdomInterface::generateObjectsList(const std::vector<const CGObjectInst
 
 			if(!kingdomOverviewImage.empty())
 			{
-				OwnedObjectInfo & info = visibleObjects[object->subID];
+				OwnedObjectInfo & info = visibleObjects[dwellingKey(dwelling)];
 				if(info.count++ == 0)
 				{
 					info.hoverText = object->getObjectName().toString(&GAME->translator());
@@ -538,7 +548,7 @@ void CKingdomInterface::generateObjectsList(const std::vector<const CGObjectInst
 			}
 			else if(object->ID == Obj::CREATURE_GENERATOR1)
 			{
-				OwnedObjectInfo & info = visibleObjects[object->subID];
+				OwnedObjectInfo & info = visibleObjects[dwellingKey(dwelling)];
 				if(info.count++ == 0)
 				{
 					info.hoverText = object->getObjectName().toString(&GAME->translator());
@@ -551,7 +561,7 @@ void CKingdomInterface::generateObjectsList(const std::vector<const CGObjectInst
 		auto iter = idToImage.find(std::make_pair(object->ID, object->subID));
 		if(iter != idToImage.end())
 		{
-			OwnedObjectInfo & info = visibleObjects[iter->second];
+			OwnedObjectInfo & info = visibleObjects[{true, false, FactionID::NONE, 0, CreatureID::NONE, iter->second}];
 			if(info.count++ == 0)
 			{
 				info.hoverText = object->getObjectName().toString(&GAME->translator());
@@ -655,7 +665,7 @@ void CKingdomInterface::generateMinesList(const std::vector<const CGObjectInstan
 
 	//if player has some modded boosts we want to show that as well
 	const auto * playerSettings = GAME->interface()->cb->getPlayerSettings(GAME->interface()->playerID);
-	const auto & towns = GAME->interface()->cb->getTownsInfo(true);
+	const auto & towns = GAME->interface()->cb->getTownsInfo();
 	totalIncome += GAME->interface()->cb->getPlayerState(GAME->interface()->playerID)->valOfBonuses(BonusType::RESOURCES_CONSTANT_BOOST, BonusSubtypeID(GameResID(EGameResID::GOLD))) * playerSettings->handicap.percentIncome / 100;
 	totalIncome += GAME->interface()->cb->getPlayerState(GAME->interface()->playerID)->valOfBonuses(BonusType::RESOURCES_TOWN_MULTIPLYING_BOOST, BonusSubtypeID(GameResID(EGameResID::GOLD))) * towns.size() * playerSettings->handicap.percentIncome / 100;
 
@@ -900,7 +910,7 @@ CTownItem::CTownItem(const CGTownInstance * Town)
 
 	fastMarket = std::make_shared<LRClickableArea>(Rect(153, 6, 65, 64), []()
 	{
-		std::vector<const CGTownInstance*> towns = GAME->interface()->cb->getTownsInfo(true);
+		std::vector<const CGTownInstance*> towns = GAME->interface()->cb->getTownsInfo();
 		for(auto & town : towns)
 		{
 			if(town->hasBuilt(BuildingID::MARKETPLACE))

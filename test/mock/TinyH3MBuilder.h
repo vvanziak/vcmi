@@ -108,6 +108,8 @@ public:
 	TinyH3MBuilder & name(std::string s);
 	TinyH3MBuilder & description(std::string s);
 	TinyH3MBuilder & difficulty(EMapDifficulty d);
+	/// HotA-only bitmask of difficulties player may choose
+	TinyH3MBuilder & allowedDifficulties(uint8_t mask);
 	/// Maximum hero level, 0 for no limit. Written only for AB+ formats.
 	TinyH3MBuilder & heroLevelLimit(uint8_t level);
 
@@ -128,6 +130,8 @@ public:
 	TinyH3MBuilder & playerActive(PlayerColor color);
 	/// Bitmask of factions the player may pick, in map format order. Default allows all factions
 	TinyH3MBuilder & playerFactions(PlayerColor color, uint32_t mask);
+	/// Set main town of the player, located at anchor position of a town placed by town()
+	TinyH3MBuilder & playerMainTown(PlayerColor color, const int3 & townPos, bool generateHero);
 
 	/// Append a fixed-faction Town object owned by `owner`.
 	/// `specialBuildings` is the raw HotA 1.7 table of faction-specific buildings, 4 entries per faction.
@@ -411,10 +415,17 @@ private:
 	std::string    mapDescription;
 	std::string    mapScript;
 	EMapDifficulty mapDifficulty = EMapDifficulty::NORMAL;
+	uint8_t        mapAllowedDifficulties = 31;
 	uint8_t        mapHeroLevelLimit = 0;
 
 	std::array<bool, 8> playerEnabled{};
 	std::array<uint32_t, 8> playerFactionMask = {~0u, ~0u, ~0u, ~0u, ~0u, ~0u, ~0u, ~0u};
+	struct MainTown
+	{
+		int3 pos;
+		bool generateHero;
+	};
+	std::array<std::optional<MainTown>, 8> playerMainTowns{};
 	std::map<int3, TerrainId> terrainOverrides;
 	std::vector<std::pair<MapObjectID, MapObjectSubID>> templates;
 	std::vector<ObjectSpec>                              objects;

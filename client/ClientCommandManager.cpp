@@ -49,7 +49,11 @@
 
 void ClientCommandManager::handleQuitCommand()
 {
-		throw GameShutdownException();
+	// commands are executed on console threads, while shutdown request must be handled by main loop
+	if(ENGINE)
+		ENGINE->dispatchMainThread([](){ GAME->onShutdownRequested(false); });
+	else
+		GAME->onShutdownRequested(false);
 }
 
 void ClientCommandManager::handleSaveCommand(std::istringstream & singleWordBuffer)
@@ -190,7 +194,7 @@ void ClientCommandManager::handleTranslateMapsCommand()
 	});
 
 	std::vector<std::unique_ptr<CMap>> loadedMaps;
-	std::vector<std::shared_ptr<CampaignState>> loadedCampaigns;
+	std::vector<std::shared_ptr<Campaign>> loadedCampaigns;
 
 	printCommandMessage("Loading maps for export");
 	for (auto const & mapName : mapList)
@@ -222,7 +226,7 @@ void ClientCommandManager::handleTranslateMapsCommand()
 			for (auto const & part : loadedCampaigns.back()->allScenarios())
 			{
 				EditorCallback cb(nullptr);
-				loadedCampaigns.back()->getMap(part, &cb);
+				loadedMaps.push_back(loadedCampaigns.back()->getMap(part, &cb));
 			}
 		}
 		catch(std::exception & e)
@@ -239,11 +243,7 @@ void ClientCommandManager::handleTranslateMapsCommand()
 		map->texts->exportAllTexts(textsByMod, false);
 
 	for (auto const & campaign : loadedCampaigns)
-	{
 		campaign->getTexts()->exportAllTexts(textsByMod, false);
-		for (auto const & scenarioTexts : campaign->getScenarioTexts())
-			scenarioTexts.second->exportAllTexts(textsByMod, false);
-	}
 
 	const boost::filesystem::path outPath = VCMIDirs::get().userExtractedPath() / "translation";
 	boost::filesystem::create_directories(outPath);
@@ -272,29 +272,6 @@ void ClientCommandManager::handleTranslateMapsCommand()
 	printCommandMessage("Translation export complete");
 	printCommandMessage("Extracted files can be found in " + TextOperations::filesystemPathToUtf8(outPath) + " directory\n");
 
-}
-
-void ClientCommandManager::handleAntilagCommand(std::istringstream& singleWordBuffer)
-{
-	std::string commandName;
-	singleWordBuffer >> commandName;
-
-	if (commandName == "on")
-	{
-		GAME->server().enableLagCompensation(true);
-		printCommandMessage("Network lag compensation is now enabled.\n");
-	}
-	else if (commandName == "off")
-	{
-		GAME->server().enableLagCompensation(true);
-		printCommandMessage("Network lag compensation is now disabled.\n");
-	}
-	else
-	{
-		printCommandMessage("Unexpected syntax. Supported forms:\n");
-		printCommandMessage("'antilag on'\n");
-		printCommandMessage("'antilag off'\n");
-	}
 }
 
 void ClientCommandManager::handleGetTextCommand()
@@ -592,9 +569,6 @@ void ClientCommandManager::processCommand(const std::string & message, bool call
 
 	else if(commandName == "setBattleAI")
 		handleSetBattleAICommand(singleWordBuffer);
-
-	else if(commandName == "antilag")
-		handleAntilagCommand(singleWordBuffer);
 
 	else if(commandName == "redraw")
 		handleRedrawCommand();

@@ -189,6 +189,12 @@ TinyH3MBuilder & TinyH3MBuilder::difficulty(EMapDifficulty d)
 	return *this;
 }
 
+TinyH3MBuilder & TinyH3MBuilder::allowedDifficulties(uint8_t mask)
+{
+	mapAllowedDifficulties = mask;
+	return *this;
+}
+
 TinyH3MBuilder & TinyH3MBuilder::heroLevelLimit(uint8_t level)
 {
 	mapHeroLevelLimit = level;
@@ -216,6 +222,12 @@ TinyH3MBuilder & TinyH3MBuilder::playerActive(PlayerColor color)
 TinyH3MBuilder & TinyH3MBuilder::playerFactions(PlayerColor color, uint32_t mask)
 {
 	playerFactionMask.at(color.getNum()) = mask;
+	return *this;
+}
+
+TinyH3MBuilder & TinyH3MBuilder::playerMainTown(PlayerColor color, const int3 & townPos, bool generateHero)
+{
+	playerMainTowns.at(color.getNum()) = MainTown{townPos, generateHero};
 	return *this;
 }
 
@@ -829,7 +841,7 @@ void TinyH3MBuilder::writeHeader(TinyH3MWriter & w) const
 		if(features.levelHOTA5)
 		{
 			w.writeUInt32(static_cast<uint32_t>(features.factionsCount));
-			w.writeUInt8(31); // all difficulty levels allowed
+			w.writeUInt8(mapAllowedDifficulties);
 		}
 	}
 
@@ -866,7 +878,8 @@ void TinyH3MBuilder::writePlayerInfo(TinyH3MWriter & w) const
 	// canonical inactive values, otherwise the editor refuses to open the map.
 	//
 	// Wire layout for an active player at its minimum size (no main town,
-	// no custom hero), matching CMapLoaderH3M::readPlayerInfo:
+	// no custom hero), matching CMapLoaderH3M::readPlayerInfo. Main town set by
+	// playerMainTown() adds generateHero bool (AB+), town type (AB+) and position:
 	//   aiTactic              uint8        (0 = AI_RANDOM)
 	//   factionSelectable     uint8 (SOD)  (0)
 	//   allowedFactions       bitmask      (factionsBytes; 0 = none)
@@ -892,7 +905,17 @@ void TinyH3MBuilder::writePlayerInfo(TinyH3MWriter & w) const
 		for(int byte = 0; byte < features.factionsBytes; ++byte)
 			w.writeUInt8(active ? static_cast<uint8_t>(playerFactionMask[i] >> (byte * 8)) : 0);
 		w.writeBool(false);                             // isFactionRandom
-		w.writeBool(false);                             // hasMainTown
+		const auto & mainTown = playerMainTowns[i];
+		w.writeBool(mainTown.has_value());              // hasMainTown
+		if(mainTown)
+		{
+			if(features.levelAB)
+			{
+				w.writeBool(mainTown->generateHero);    // generateHeroAtMainTown
+				w.writeUInt8(0xff);                     // starting town type, unused
+			}
+			w.writeInt3(mainTown->pos);
+		}
 		w.writeBool(false);                             // hasRandomHero
 		w.writeUInt8(static_cast<uint8_t>(features.heroIdentifierInvalid)); // mainCustomHeroId = NONE
 		if(features.levelAB)

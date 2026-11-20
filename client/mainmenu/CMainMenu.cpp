@@ -48,7 +48,6 @@
 #include "../CMT.h"
 
 #include "../../lib/texts/CGeneralTextHandler.h"
-#include "../../lib/campaign/CampaignHandler.h"
 #include "../../lib/filesystem/Filesystem.h"
 #include "../../lib/filesystem/CCompressedStream.h"
 #include "../../lib/modding/CModHandler.h"
@@ -442,17 +441,10 @@ void CMainMenu::openLobby(ESelectionScreen screenType, bool host, const std::vec
 	ENGINE->windows().createAndPushWindow<CSimpleJoinScreen>(host, server, port);
 }
 
-void CMainMenu::openCampaignLobby(const std::string & campaignFileName, std::string campaignSet)
-{
-	auto ourCampaign = CampaignHandler::getCampaign(campaignFileName);
-	ourCampaign->campaignSet = campaignSet;
-	openCampaignLobby(ourCampaign);
-}
-
-void CMainMenu::openCampaignLobby(std::shared_ptr<CampaignState> campaign)
+void CMainMenu::openCampaignLobby(const std::string & campaignFileName, const std::string & campaignSet)
 {
 	GAME->server().resetStateForLobby(EStartMode::CAMPAIGN, ESelectionScreen::campaignList, EServerMode::LOCAL, {});
-	GAME->server().campaignStateToSend = campaign;
+	GAME->server().campaignToStart = CServerHandler::CampaignToStart{campaignFileName, campaignSet};
 	ENGINE->windows().createAndPushWindow<CSimpleJoinScreen>();
 }
 
@@ -804,7 +796,7 @@ void CSimpleJoinScreen::connectToServer()
 void CSimpleJoinScreen::leaveScreen()
 {
 	textTitle->setText(LIBRARY->generaltexth->translate("vcmi.mainMenu.serverClosing"));
-	GAME->server().setState(EClientState::CONNECTION_CANCELLED);
+	GAME->server().cancelConnection();
 	close();
 }
 

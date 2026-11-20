@@ -90,6 +90,13 @@ CShots::CShots(const battle::Unit * Owner)
 {
 }
 
+CShots & CShots::operator=(const CShots & other)
+{
+	CAmmo::operator=(other);
+	env = other.env;
+	return *this;
+}
+
 bool CShots::isLimited() const
 {
 	return !shooter.hasBonus() || !env->unitHasAmmoCart(owner);
@@ -122,6 +129,13 @@ CRetaliations::CRetaliations(const battle::Unit * Owner)
 	noRetaliationPersistent(Owner, Selector::type()(BonusType::SIEGE_WEAPON).Or(Selector::type()(BonusType::NO_RETALIATION)).And(CSelector(Bonus::UntilBeingAttacked).Not())),
 	unlimited(Owner, Selector::type()(BonusType::UNLIMITED_RETALIATIONS))
 {
+}
+
+CRetaliations & CRetaliations::operator=(const CRetaliations & other)
+{
+	CAmmo::operator=(other);
+	totalCache = other.totalCache;
+	return *this;
 }
 
 bool CRetaliations::isLimited() const
@@ -772,17 +786,16 @@ int CUnitState::getTotalAttacks(bool ranged) const
 
 int CUnitState::getMinDamage(bool ranged) const
 {
-	return ranged ?
+	return std::max(0, ranged ?
 		bonusCache.getBonusValue(UnitBonusValuesProxy::MIN_DAMAGE_RANGED):
-		bonusCache.getBonusValue(UnitBonusValuesProxy::MIN_DAMAGE_MELEE);
-
+		bonusCache.getBonusValue(UnitBonusValuesProxy::MIN_DAMAGE_MELEE));
 }
 
 int CUnitState::getMaxDamage(bool ranged) const
 {
-	return ranged ?
+	return std::max(0, ranged ?
 		bonusCache.getBonusValue(UnitBonusValuesProxy::MAX_DAMAGE_RANGED):
-		bonusCache.getBonusValue(UnitBonusValuesProxy::MAX_DAMAGE_MELEE);
+		bonusCache.getBonusValue(UnitBonusValuesProxy::MAX_DAMAGE_MELEE));
 }
 
 int CUnitState::getAttack(bool ranged) const

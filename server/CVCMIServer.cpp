@@ -370,7 +370,7 @@ bool CVCMIServer::prepareToStartGame()
 		if (!ps || ps->checkVanquished())
 		{
 			logGlobal->error("Human player %s has no heroes and no towns! Aborting game start!", color.toString());
-			auto str = MetaString::createFromTextID("vcmi.broadcast.failedLoadGame");
+			announceMessage(MetaString::createFromTextID("vcmi.broadcast.failedLoadGame"));
 			return false;
 		}
 	}
@@ -615,6 +615,10 @@ void CVCMIServer::updateStartInfoOnMapChange(std::shared_ptr<CMapInfo> mapInfo, 
 	{
 		if(mi->campaign)
 			return;
+
+		// difficulty from previous map or from client settings may be forbidden on this map
+		auto difficulty = static_cast<EMapDifficulty>(si->difficulty);
+		si->difficulty = static_cast<uint8_t>(mi->mapHeader->allowedDifficulties.closest(difficulty));
 
 		for(int i = 0; i < mi->mapHeader->players.size(); i++)
 		{
@@ -927,19 +931,41 @@ void CVCMIServer::optionSetCastle(PlayerColor player, FactionID id)
 		s.bonus = PlayerStartingBonus::RANDOM;
 }
 
+void CVCMIServer::setCampaign(std::shared_ptr<CampaignState> campaign)
+{
+	si->mapname = campaign->getCampaign().getFilename();
+	si->mode = EStartMode::CAMPAIGN;
+	si->campState = campaign;
+	si->turnTimerInfo = TurnTimerInfo{};
+
+	bool isCurrentMapConquerable = campaign->currentScenario() && campaign->isAvailable(*campaign->currentScenario());
+
+	auto scenarios = campaign->getCampaign().allScenarios();
+	for(auto scenarioID : std::views::reverse(scenarios)) // reverse -> on multiple scenario selection set lowest id at the end
+	{
+		if(campaign->isAvailable(scenarioID))
+		{
+			if(!isCurrentMapConquerable || (isCurrentMapConquerable && scenarioID == *campaign->currentScenario()))
+			{
+				setCampaignMap(scenarioID);
+			}
+		}
+	}
+}
+
 void CVCMIServer::setCampaignMap(CampaignScenarioID mapId)
 {
 	campaignMap = mapId;
-	si->difficulty = si->campState->scenario(mapId).difficulty;
+	si->difficulty = si->campState->getCampaign().scenario(mapId).difficulty;
 	campaignBonus = -1;
-	updateStartInfoOnMapChange(si->campState->getMapInfo(mapId));
+	updateStartInfoOnMapChange(si->campState->getCampaign().getMapInfo(mapId));
 }
 
 void CVCMIServer::setCampaignBonus(int bonusId)
 {
 	campaignBonus = bonusId;
 
-	const CampaignScenario & scenario = si->campState->scenario(campaignMap);
+	const CampaignScenario & scenario = si->campState->getCampaign().scenario(campaignMap);
 	const CampaignBonus & bonus = scenario.travelOptions.bonusesToChoose.at(bonusId);
 	if(bonus.getType() == CampaignBonusType::HERO || bonus.getType() == CampaignBonusType::HEROES_FROM_PREVIOUS_SCENARIO)
 	{

@@ -492,7 +492,7 @@ void CInteractableTownTooltip::init(const CGTownInstance * town)
 	fort = std::make_shared<CAnimImage>(AnimationPath::builtin("ITMCLS"), fortIndex, 0, 105, 31);
 	fastArmyPurchase = std::make_shared<LRClickableArea>(Rect(105, 31, 34, 34), [townId]()
 	{
-		std::vector<const CGTownInstance*> towns = GAME->interface()->cb->getTownsInfo(true);
+		std::vector<const CGTownInstance*> towns = GAME->interface()->cb->getTownsInfo();
 		for(auto & town : towns)
 		{
 			if(town->id == townId)
@@ -513,7 +513,7 @@ void CInteractableTownTooltip::init(const CGTownInstance * town)
 	}
 	fastMarket = std::make_shared<LRClickableArea>(Rect(143, 31, 30, 34), []()
 	{
-		std::vector<const CGTownInstance*> towns = GAME->interface()->cb->getTownsInfo(true);
+		std::vector<const CGTownInstance*> towns = GAME->interface()->cb->getTownsInfo();
 		for(auto & town : towns)
 		{
 			if(town->hasBuilt(BuildingID::MARKETPLACE))
@@ -537,7 +537,7 @@ void CInteractableTownTooltip::init(const CGTownInstance * town)
 		hall = std::make_shared<CAnimImage>(AnimationPath::builtin("ITMTLS"), townInfo.details->hallLevel, 0, 67, 31);
 		fastTownHall = std::make_shared<LRClickableArea>(Rect(67, 31, 34, 34), [townId]()
 		{
-			std::vector<const CGTownInstance*> towns = GAME->interface()->cb->getTownsInfo(true);
+			std::vector<const CGTownInstance*> towns = GAME->interface()->cb->getTownsInfo();
 			for(auto & town : towns)
 			{
 				if(town->id == townId)
@@ -622,16 +622,17 @@ void MoraleLuckBox::set(const AFactionMember * node)
 	description.replaceTextID("core.arraytxt", neutralDescr[morale] - mrlt);
 	text = description.toString(&GAME->translator());
 
-	if (morale && node && node->unaffectedByMorale())
-	{
-		text += LIBRARY->generaltexth->translate("core.arraytxt.113"); //unaffected by morale
-		component.value = 0;
-	}
-	else if(morale && node && node->getBonusBearer()->hasBonusOfType(BonusType::NO_MORALE))
+	// checked before unaffectedByMorale, which includes NO_MORALE, to show what blocks morale, e.g. Cursed Ground
+	if(morale && node && node->getBonusBearer()->hasBonusOfType(BonusType::NO_MORALE))
 	{
 		auto noMorale = node->getBonusBearer()->getBonus(Selector::type()(BonusType::NO_MORALE));
 		if(GAME->interface())
 			text += "\n" + noMorale->Description(GAME->interface()->cb.get());
+		component.value = 0;
+	}
+	else if (morale && node && node->unaffectedByMorale())
+	{
+		text += LIBRARY->generaltexth->translate("core.arraytxt.113"); //unaffected by morale
 		component.value = 0;
 	}
 	else if (!morale && node && node->getBonusBearer()->hasBonusOfType(BonusType::NO_LUCK))

@@ -439,7 +439,7 @@
 							"levelSpellImmunity" : {
 								"val" : 3,
 								"type" : "LEVEL_SPELL_IMMUNITY",
-								"valueType" : "INDEPENDENT_MAX",
+								"valueType" : "AT_LEAST",
 								"duration" : "N_TURNS"
 							}
 						}
@@ -503,7 +503,7 @@
 						"bonus" : {
 							"spellReflect" : {
 								"type" : "MAGIC_MIRROR",
-								"valueType" : "INDEPENDENT_MAX",
+								"valueType" : "AT_LEAST",
 								"duration" : "N_TURNS",
 								"val" : 20
 							}
@@ -563,7 +563,7 @@
 							"alwaysMaximumDamage" : {
 								"val" : 0,
 								"type" : "ALWAYS_MAXIMUM_DAMAGE",
-								"valueType" : "INDEPENDENT_MAX",
+								"valueType" : "AT_LEAST",
 								"duration" : "N_TURNS"
 							}
 						}
@@ -630,11 +630,13 @@
 				"battleEffects" : {
 					"curse" : {
 						"type" : "timed",
+						"battleLogSingular" : "@core.genrltxt.557",
+						"battleLogPlural" : "@core.genrltxt.557",
 						"bonus" : {
 							"alwaysMinimumDamage" : {
 								"val" : 0,
 								"type" : "ALWAYS_MINIMUM_DAMAGE",
-								"valueType" : "INDEPENDENT_MAX",
+								"valueType" : "AT_LEAST",
 								"duration" : "N_TURNS"
 							}
 						}
@@ -963,27 +965,41 @@
 				"targetModifier" : {
 					"smart" : true
 				},
-				"cumulativeEffects" : {
-					"primarySkill" : {
-						"type" : "PRIMARY_SKILL",
-						"subtype" : "defence",
-						"val" : -3,
-						"valueType" : "ADDITIVE_VALUE",
-						"duration" : "PERMANENT"
+				"battleEffects" : {
+					"disruptingRay" : {
+						"type" : "timed",
+						"cumulative" : true,
+						"bonus" : {
+							"primarySkill" : {
+								"type" : "PRIMARY_SKILL",
+								"subtype" : "defence",
+								"val" : -3,
+								"valueType" : "ADDITIVE_VALUE",
+								"duration" : "PERMANENT"
+							}
+						}
 					}
 				}
 			},
 			"advanced" : {
-				"cumulativeEffects" : {
-					"primarySkill" : {
-						"val" : -4
+				"battleEffects" : {
+					"disruptingRay" : {
+						"bonus" : {
+							"primarySkill" : {
+								"val" : -4
+							}
+						}
 					}
 				}
 			},
 			"expert" : {
-				"cumulativeEffects" : {
-					"primarySkill" : {
-						"val" : -5
+				"battleEffects" : {
+					"disruptingRay" : {
+						"bonus" : {
+							"primarySkill" : {
+								"val" : -5
+							}
+						}
 					}
 				}
 			}
@@ -1779,38 +1795,59 @@
 				"targetModifier" : {
 					"smart" : true
 				},
-				"effects" : {
-					"hypnotized" : {
-						"type" : "HYPNOTIZED",
-						"duration" : "N_TURNS"
+				"battleEffects" : {
+					"hypnotize" : {
+						"type" : "timed",
+						"bonus" : {
+							"hypnotized" : {
+								"type" : "HYPNOTIZED",
+								"duration" : "N_TURNS"
+							}
+						}
 					}
 				}
 			},
 			"none" : {
-				"effects" : {
-					"hypnotized" : {
-						"val" : 0
+				"battleEffects" : {
+					"hypnotize" : {
+						"bonus" : {
+							"hypnotized" : {
+								"val" : 0
+							}
+						}
 					}
 				}
 			},
 			"basic" : {
-				"effects" : {
-					"hypnotized" : {
-						"val" : 1
+				"battleEffects" : {
+					"hypnotize" : {
+						"bonus" : {
+							"hypnotized" : {
+								"val" : 1
+							}
+						}
 					}
 				}
 			},
 			"advanced" : {
-				"effects" : {
-					"hypnotized" : {
-						"val" : 2
+				"battleEffects" : {
+					"hypnotize" : {
+						"bonus" : {
+							"hypnotized" : {
+								"val" : 2
+							}
+						}
 					}
 				}
 			},
 			"expert" : {
-				"effects" : {
-					"hypnotized" : {
-						"val" : 3
+				"battleEffects" : {
+					"hypnotize" : {
+						"bonus" : {
+							"hypnotized" : {
+								"val" : 3
+							}
+						}
 					}
 				}
 			}
@@ -1828,7 +1865,7 @@
 				"bonus.UNDEAD" : "normal",
 				"bonus.NON_LIVING" : "normal",
 				"bonus.MECHANICAL" : "normal",
-				"spell.magicMirror" : "normal"
+				"spell.magicMirror" : "absolute"
 			}
 		},
 		"flags" : {
@@ -1926,8 +1963,8 @@
 				"battleEffects" : {
 					"blind" : {
 						"type" : "timed",
-						//"battleLogSingular" : "@core.genrltxt.556",
-						//"battleLogPlural" : "@core.genrltxt.556",
+						"battleLogSingular" : "@core.genrltxt.556",
+						"battleLogPlural" : "@core.genrltxt.556",
 						"bonus" : {
 							"notActive" : {
 								"val" : 0,

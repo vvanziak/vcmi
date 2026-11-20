@@ -1256,9 +1256,9 @@ void CCastleBuildings::enterTownHall()
 		}
 		else
 		{
-			GAME->interface()->showInfoDialog(LIBRARY->generaltexth->allTexts[673]);
-			assert(ENGINE->windows().topWindow<CInfoWindow>() != nullptr);
-			ENGINE->windows().topWindow<CInfoWindow>()->buttons[0]->addCallback(std::bind(&CCastleBuildings::openTownHall, this));
+			auto infoWindow = CInfoWindow::create(LIBRARY->generaltexth->allTexts[673], GAME->interface()->playerID);
+			infoWindow->buttons[0]->addCallback(std::bind(&CCastleBuildings::openTownHall, this));
+			ENGINE->windows().pushWindow(infoWindow);
 		}
 	}
 	else
@@ -1283,7 +1283,7 @@ void CCastleBuildings::openTownHall()
 
 void CCastleBuildings::enterAnyThievesGuild()
 {
-	std::vector<const CGTownInstance*> towns = GAME->interface()->cb->getTownsInfo(true);
+	std::vector<const CGTownInstance*> towns = GAME->interface()->cb->getTownsInfo();
 	for(auto & ownedTown : towns)
 	{
 		if(ownedTown->hasBuilt(BuildingID::TAVERN))
@@ -1318,7 +1318,7 @@ void CCastleBuildings::enterAnyMarket()
 		return;
 	}
 
-	std::vector<const CGTownInstance*> towns = GAME->interface()->cb->getTownsInfo(true);
+	std::vector<const CGTownInstance*> towns = GAME->interface()->cb->getTownsInfo();
 	for(auto & town : towns)
 	{
 		if(town->hasBuilt(BuildingID::MARKETPLACE))
@@ -1580,13 +1580,14 @@ CCastleInterface::CCastleInterface(const CGTownInstance * Town, const CGTownInst
 
 CCastleInterface::~CCastleInterface()
 {
-	// resume map audio if:
-	// adventureInt exists (may happen on exiting client with open castle interface)
-	// castleInt has not been replaced (happens on switching between towns inside castle interface)
-	if (adventureInt && GAME->interface()->castleInt == this)
-		adventureInt->onAudioResumed();
 	if(GAME->interface()->castleInt == this)
 		GAME->interface()->castleInt = nullptr;
+
+	// resume map audio if:
+	// adventureInt exists (may happen on exiting client with open castle interface)
+	// no other castle interface has been opened (happens on switching between towns inside castle interface)
+	if (adventureInt && GAME->interface()->castleInt == nullptr)
+		adventureInt->onAudioResumed();
 }
 
 void CCastleInterface::updateArtifacts()
@@ -1620,6 +1621,9 @@ void CCastleInterface::close()
 		else
 			GAME->interface()->localState->setSelection(town);
 	}
+	// closed window is only destroyed at the end of the frame, so castleInt must stop pointing to it right away
+	if(GAME->interface()->castleInt == this)
+		GAME->interface()->castleInt = nullptr;
 	CWindowObject::close();
 }
 
@@ -1685,7 +1689,7 @@ public:
 		auto isMarketAvailable = [this](){
 			if(town->hasBuilt(BuildingID::MARKETPLACE))
 				return true;
-			for(const auto & t : GAME->interface()->cb->getTownsInfo(true))
+			for(const auto & t : GAME->interface()->cb->getTownsInfo())
 				if(t->hasBuilt(BuildingID::MARKETPLACE))
 					return true;
 			return false;

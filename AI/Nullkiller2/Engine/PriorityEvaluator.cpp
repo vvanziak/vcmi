@@ -130,7 +130,7 @@ int getVisibleEnemyTownCount(const CGTownInstance * town, const Nullkiller * aiN
 		return 0;
 
 	int result = 0;
-	for(const auto * visibleTown : aiNk->cc->getTownsInfo(false))
+	for(const auto * visibleTown : aiNk->cc->getVisibleTowns())
 	{
 		if(visibleTown->getOwner() == owner)
 			result++;
@@ -1639,7 +1639,8 @@ float PriorityEvaluator::evaluate(
 
 				if(priorityTier == EXPLORE_AND_GATHER && evaluationContext.enemyHeroDangerRatio > maxEnemyDangerRatio)
 					return 0;
-				if(priorityTier == ESCAPE && task->hero)
+				// tasks without a destination tile, such as staying in a town, do not move the hero away from the threat
+				if(priorityTier == ESCAPE && task->hero && task->tile.isValid())
 				{
 					const auto currentTileThreat = aiNk->dangerHitMap->getTileThreat(task->hero->visitablePos());
 					if(currentTileThreat.fastestDanger.turn < 1 && currentTileThreat.fastestDanger.danger > task->hero->estimateHeroCombatValue())

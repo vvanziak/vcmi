@@ -16,6 +16,7 @@
 #include "../constants/StringConstants.h"
 #include "../filesystem/Filesystem.h"
 #include "../json/JsonNode.h"
+#include "../CConfigHandler.h"
 #include "../texts/Languages.h"
 
 static std::string getModDirectory(const TModID & modName)
@@ -48,6 +49,13 @@ static std::optional<TModID> getModIDFromDefinitionFile(const std::string & path
 		// '.' separates mod from its submods, so it can not be part of a mod name
 		if(name.empty() || name.find('.') != std::string::npos || ModScope::isScopeReserved(name))
 			return std::nullopt;
+
+		const bool hasUnsupportedSymbols = std::ranges::any_of(name, [](char c)
+		{
+			return !((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '_' || c == ' ');
+		});
+		if(hasUnsupportedSymbols)
+			logMod->warn("Mod directory '%s' contains symbols other than latin letters, digits, '-', '_' and space. Such mods will not be loaded by future versions of VCMI", name);
 
 		if(!result.empty())
 			result += '.';
@@ -153,14 +161,16 @@ double ModsState::getInstalledModSizeMegabytes(const TModID & modName) const
 ModsPresetState::ModsPresetState(bool useTestPreset)
 	: settingsPath(JsonPath::builtin(useTestPreset ? "config/testModSettings.json" : "config/modSettings.json"))
 {
-	if(CResourceHandler::get("local")->existsResource(ResourcePath(settingsPath)))
+	auto * userConfigs = CResourceHandler::get("config");
+
+	if(userConfigs->existsResource(ResourcePath(settingsPath)))
 	{
-		modConfig = JsonNode(settingsPath);
+		modConfig = JsonNode(settingsPath, *userConfigs);
 	}
 	else
 	{
 		// Probably new install. Create initial configuration
-		CResourceHandler::get("local")->createResource(settingsPath.getOriginalName() + ".json");
+		userConfigs->createResource(settingsPath.getOriginalName() + ".json");
 	}
 
 	if(modConfig["presets"].isNull() || modConfig["presets"].Struct().empty())
@@ -340,7 +350,7 @@ void ModsPresetState::setValidatedChecksum(const TModID & modName, std::optional
 
 void ModsPresetState::saveConfigurationState() const
 {
-	std::fstream file(CResourceHandler::get()->getResourceName(ResourcePath(settingsPath))->c_str(), std::ofstream::out | std::ofstream::trunc);
+	std::fstream file(CResourceHandler::get("config")->getResourceName(ResourcePath(settingsPath))->c_str(), std::ofstream::out | std::ofstream::trunc);
 	file << modConfig.toCompactString();
 }
 
@@ -428,7 +438,7 @@ std::string ModsPresetState::importPreset(const JsonNode & newConfig)
 
 ModsStorage::ModsStorage(const std::vector<TModID> & modsToLoad, const JsonNode & repositoryList)
 {
-	JsonNode coreModConfig(JsonPath::builtin("config/gameConfig.json"));
+	JsonNode coreModConfig(JsonPath::builtin("config/gameConfig.json"), *CResourceHandler::get(ModScope::scopeBuiltin()));
 	coreModConfig.setModScope(ModScope::scopeBuiltin());
 	mods.try_emplace(ModScope::scopeBuiltin(), ModScope::scopeBuiltin(), coreModConfig, JsonNode());
 
@@ -514,8 +524,9 @@ ModManager::ModManager(const JsonNode & repositoryList, bool useTestPreset, cons
 	syncDemoModState();
 
 	// resolved together with active mods, so that mods that depend on new mods are not disabled as broken
+	const auto installedValidMods = getInstalledValidMods();
 	for(const auto & modID : newMods)
-		if(vstd::contains(getInstalledValidMods(), modID))
+		if(vstd::contains(installedValidMods, modID))
 			modsPreset->setModActive(modID, true);
 
 	std::vector<TModID> desiredModList = modsPreset->getActiveMods();
@@ -753,9 +764,10 @@ void ModManager::updatePreset(const ModDependenciesResolver & testResolver)
 	const auto & newActiveMods = testResolver.getActiveMods();
 	const auto & newBrokenMods = testResolver.getBrokenMods();
 
+	[[maybe_unused]] const auto installedValidMods = getInstalledValidMods();
 	for (const auto & modID : newActiveMods)
 	{
-		assert(vstd::contains(getInstalledValidMods(), modID));
+		assert(vstd::contains(installedValidMods, modID));
 		modsPreset->setModActive(modID, true);
 	}
 
@@ -769,18 +781,21 @@ void ModManager::updatePreset(const ModDependenciesResolver & testResolver)
 	std::vector<TModID> desiredModList = modsPreset->getActiveMods();
 
 	// Try to enable all existing compatibility patches. Ignore on failure
-	for (const auto & rootMod : modsPreset->getActiveRootMods())
+	if (!settings["session"]["disableCompatibilityAutoEnable"].Bool())
 	{
-		for (const auto & modSetting : modsPreset->getModSettings(rootMod))
+		for (const auto & rootMod : modsPreset->getActiveRootMods())
 		{
-			if (modSetting.second)
-				continue;
+			for (const auto & modSetting : modsPreset->getModSettings(rootMod))
+			{
+				if (modSetting.second)
+					continue;
 
-			TModID fullModID = rootMod + '.' + modSetting.first;
-			const auto & modDescription = modsStorage->getMod(fullModID);
+				TModID fullModID = rootMod + '.' + modSetting.first;
+				const auto & modDescription = modsStorage->getMod(fullModID);
 
-			if (modDescription.isCompatibility())
-				desiredModList.push_back(fullModID);
+				if (modDescription.isCompatibility())
+					desiredModList.push_back(fullModID);
+			}
 		}
 	}
 

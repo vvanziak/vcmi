@@ -44,7 +44,10 @@ class DLL_LINKAGE CCreature : public Creature, public CBonusSystemNode
 	CreatureID idNumber;
 
 	FactionID faction = FactionID::NEUTRAL;
+	EAlignment alignment = EAlignment::NEUTRAL; ///< alignment of the faction, stored on load
 	ui8 level = 0; // 0 - unknown; 1-7 for "usual" creatures
+
+	std::set<CreatureID> upgradedFrom; ///< creatures that can be upgraded to this one directly or indirectly, filled on load
 
 	//stats that are not handled by bonus system
 	ui32 fightValue, AIValue, growth, hordeGrowth;
@@ -169,9 +172,8 @@ public:
 	/// Returns true if this creature can be directly upgraded to target
 	bool isMyDirectUpgrade(const CCreature * target) const;
 
-	/// Returns true if this creature can be upgraded to target
-	/// Performs full search through potential upgrades of upgrades
-	bool isMyDirectOrIndirectUpgrade(const CCreature *target) const;
+	/// Returns true if this creature is a direct or indirect upgrade of base
+	bool isUpgradeOf(const CreatureID & base) const;
 
 	void addBonus(int val, BonusType type);
 	void addBonus(int val, BonusType type, BonusSubtypeID subtype);
@@ -212,11 +214,6 @@ protected:
 public:
 	std::set<CreatureID> doubledCreatures; //they get double week
 
-	//stack exp
-	std::vector<std::vector<ui32> > expRanks; // stack experience needed for certain rank, index 0 for other tiers (?)
-	std::vector<ui32> maxExpPerBattle; //%, tiers same as above
-	si8 expAfterUpgrade;//multiplier in %
-
 	//Commanders
 	ResourceSet commanderResurrectionPrice; // fallback resources paid to resurrect a commander in town
 	BonusList commanderLevelPremy; //bonus values added with each level-up
@@ -226,9 +223,6 @@ public:
 
 	explicit CCreatureHandler(LibraryLoadContext & context);
 	~CCreatureHandler();
-
-	/// load all stack modifier bonuses from H3 files. TODO: move this to json
-	void loadCrExpMod(LibraryLoadContext & context);
 
 	const ResourceSet & getCommanderResurrectionPrice(const CCreature * commander) const;
 

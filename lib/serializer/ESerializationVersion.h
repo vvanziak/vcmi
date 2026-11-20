@@ -77,13 +77,18 @@ enum class ESerializationVersion : int32_t
 	SPELL_ID_WITH_MASTERY, // spell id is combined with spell mastery level
 	LOBBY_SCENARIO_LIST, // lobby lists maps and saved games of the server and selects them by name
 	RUMOR_REWORK, // rumor state stores typed rumor and rumors told since their pool was exhausted
+	ARMAGEDDONS_BLADE_BEARER, // campaign scenario may allow only one hero to equip Armageddon's Blade
+	CAMPAIGN_ENEMY_HERO_CARRIED_OVER, // campaign scenario may carry over a hero that the player does not own
+	MAP_ALLOWED_DIFFICULTIES, // map header may restrict difficulties available to player
+	LOBBY_CAMPAIGN_ON_SERVER, // server loads campaigns by name and prepares their next scenario itself
+	CAMPAIGN_STATIC_DATA, // campaign state refers to its campaign by pointer, shared between start infos
 
 	RELEASE_170 = HOTA_MAP_STACK_COUNT,
 	RELEASE_174 = CUSTOM_GARRISON_TITLE,
 
 	MINIMAL = RELEASE_170,
-	MINIMAL_LOBBY = LOBBY_SCENARIO_LIST, // client and server of lobby reject each other below this version
-	CURRENT = RUMOR_REWORK,
+	MINIMAL_LOBBY = CAMPAIGN_STATIC_DATA, // client and server of lobby reject each other below this version
+	CURRENT = CAMPAIGN_STATIC_DATA,
 };
 
 static_assert(ESerializationVersion::MINIMAL <= ESerializationVersion::CURRENT, "Invalid serialization version definition!");

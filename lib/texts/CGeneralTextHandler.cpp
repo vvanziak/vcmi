@@ -72,7 +72,9 @@ void CGeneralTextHandler::detectInstallParameters()
 
 	std::array<size_t, 256> charCount{};
 	std::array<double, 16> footprint{};
-	std::array<double, 6> deviations{};
+	std::array<double, knownFootprints.size()> deviations{};
+
+	static_assert(std::size(knownFootprints) == std::size(knownLanguages));
 
 	auto data = resource->readAll();
 
@@ -115,7 +117,7 @@ void CGeneralTextHandler::detectInstallParameters()
 
 void CGeneralTextHandler::readToVector(const CModHandler & modHandler, const std::string & sourceID, const std::string & sourceName)
 {
-	bool resExists = CResourceHandler::get()->existsResource(ResourcePath(sourceName));
+	bool resExists = modHandler.getRootFilesystem().existsResource(ResourcePath(sourceName));
 	if(!resExists && roeMapping["newLines"][sourceName].isVector())
 		return;
 
@@ -139,7 +141,7 @@ CGeneralTextHandler::CGeneralTextHandler(const CModHandler & modHandler):
 	zelp             (*this, "core.help"     )
 {
 	if(isRoEData())
-		roeMapping = JsonNode(JsonPath::builtin("config/roeStringMapping.json"));
+		roeMapping = JsonNode(JsonPath::builtin("config/roeStringMapping.json"), modHandler.getRootFilesystem());
 	readToVector(modHandler, "core.vcdesc",   "DATA/VCDESC.TXT"   );
 	readToVector(modHandler, "core.lcdesc",   "DATA/LCDESC.TXT"   );
 	readToVector(modHandler, "core.tcommand", "DATA/TCOMMAND.TXT" );

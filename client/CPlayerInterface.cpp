@@ -408,10 +408,7 @@ void CPlayerInterface::townRemoved(const CGTownInstance* town)
 
 	// close town screen if it shows the town being removed, otherwise objectRemovedAfter dereferences a dangling pointer
 	if(castleInt && castleInt->town == town)
-	{
 		castleInt->close();
-		castleInt = nullptr;
-	}
 
 	if(town->tempOwner == playerID)
 	{
@@ -444,7 +441,6 @@ void CPlayerInterface::openTownWindow(const CGTownInstance * town)
 {
 	if(castleInt)
 		castleInt->close();
-	castleInt = nullptr;
 
 	auto newCastleInt = std::make_shared<CCastleInterface>(town);
 
@@ -657,7 +653,8 @@ void CPlayerInterface::battleStart(const BattleID & battleID, const CCreatureSet
 	bool useQuickCombat = settings["adventure"]["quickCombat"].Bool() || GAME->map().getMap()->battleOnly;
 	bool forceQuickCombat = settings["adventure"]["forceQuickCombat"].Bool();
 
-	if ((replayAllowed && useQuickCombat) || forceQuickCombat)
+	// a replayed battle is shown as recorded, so there is nothing for quick combat to fight
+	if (!GAME->server().isReplayActive() && ((replayAllowed && useQuickCombat) || forceQuickCombat))
 	{
 		prepareAutoFightingAI(battleID, army1, army2, tile, hero1, hero2, side);
 	}

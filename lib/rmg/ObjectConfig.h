@@ -12,6 +12,8 @@
 
 #include "../mapObjects/CompoundMapObjectID.h"
 
+class CObjectClassesHandler;
+
 #ifdef ENABLE_TEMPLATE_EDITOR
 class ObjectSelector;
 #endif
@@ -41,8 +43,11 @@ public:
 		SEER_HUT
 	};
 
+	/// Rarity of native dwellings without rmg info, also the default rarity of randomDwellingLvl common objects
+	static constexpr ui16 NATIVE_DWELLING_RARITY = 40;
+
 	void addBannedObject(const CompoundMapObjectID & objid);
-	void addCustomObject(const ObjectInfo & object);
+	void addCustomObject(const ObjectInfo & object, const CObjectClassesHandler & objects);
 	void addRequiredObject(const CompoundMapObjectID & objid, ui16 count, std::optional<ui32> guardLevel = std::nullopt);
 	void addRequiredObject(const CompoundMapObjectID & objid, std::pair<ui16, std::optional<ui32>> info);
 	void clearBannedObjects();
@@ -54,7 +59,7 @@ public:
 
 	std::map<CompoundMapObjectID, std::pair<ui16, std::optional<ui32>>> getRequiredObjects() const;
 
-	void serializeJson(JsonSerializeFormat & handler);
+	void serializeJson(JsonSerializeFormat & handler, const CObjectClassesHandler & objects);
 private:
 	// TODO: Add convenience method for banning objects by name
 	std::vector<CompoundMapObjectID> bannedObjects;

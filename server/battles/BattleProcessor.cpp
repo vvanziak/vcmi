@@ -183,7 +183,7 @@ void BattleProcessor::tryLearnEnemySpellsPreBattle(const BattleInfo * battle, Ba
 	for(const auto spellID : enemy->getSpellsInSpellbook())
 	{
 		const auto * spell = spellID.toSpell();
-		if(!spell)
+		if(!spell || !spell->isCommonHeroSpell())
 			continue;
 
 		if(spell->getLevel() <= spellLevelLimit && !learner->spellbookContainsSpell(spell->getId()) && gameHandler->getRandomGenerator().nextInt(99) < eagleEyeChance)
@@ -405,7 +405,7 @@ void BattleProcessor::setBattleResult(const CBattleInfoCallback & battle, EBattl
 	resultProcessor->endBattle(battle);
 
 	// No event dispatch is valid after battle removal.
-	actionsProcessor->forgetPendingDeaths(battleID);
+	actionsProcessor->forgetPendingEvents(battleID);
 }
 
 bool BattleProcessor::makeAutomaticBattleAction(const CBattleInfoCallback & battle, const BattleAction &ba)
@@ -418,7 +418,7 @@ void BattleProcessor::processBattleEventTriggers(const CBattleInfoCallback & bat
 	actionsProcessor->processBattleEventTriggers(battle, event, target, secondary);
 
 	// This entry point has no action boundary that could flush deaths later.
-	actionsProcessor->flushPendingDeaths(battle);
+	actionsProcessor->flushPendingEvents(battle);
 }
 
 void BattleProcessor::spellHasHit(const CBattleInfoCallback & battle, const spells::Spell & spell, const battle::Unit * casterUnit, const std::vector<std::shared_ptr<const battle::CUnitState>> & unitsBefore)
@@ -431,9 +431,14 @@ void BattleProcessor::noteDeaths(const CBattleInfoCallback & battle, const std::
 	actionsProcessor->noteDeaths(battle, casualties);
 }
 
-void BattleProcessor::flushPendingDeaths(const CBattleInfoCallback & battle)
+void BattleProcessor::noteSpawns(const CBattleInfoCallback & battle, const BattleUnitsChanged & changes)
 {
-	actionsProcessor->flushPendingDeaths(battle);
+	actionsProcessor->noteSpawns(battle, changes);
+}
+
+void BattleProcessor::flushPendingEvents(const CBattleInfoCallback & battle)
+{
+	actionsProcessor->flushPendingEvents(battle);
 }
 
 void BattleProcessor::endBattleConfirm(const BattleID & battleID)

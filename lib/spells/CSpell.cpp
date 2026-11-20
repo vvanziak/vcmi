@@ -142,6 +142,9 @@ std::string CSpell::getNameTranslated() const
 std::string CSpell::getDescriptionTextID(int32_t schoolLevel) const
 {
 	TextIdentifier textID("spell", modScope, identifier, "description", LEVEL_NAMES[schoolLevel]);
+	// spells that do not scale with mastery define only the description for no mastery
+	if(!LIBRARY->generaltexth->identifierExists(textID))
+		return TextIdentifier("spell", modScope, identifier, "description", LEVEL_NAMES[0]).get();
 	return textID.get();
 }
 
@@ -249,7 +252,11 @@ bool CSpell::hasEffects() const
 
 bool CSpell::hasBattleEffects() const
 {
-	return levels[0].battleEffects.getType() == JsonNode::JsonType::DATA_STRUCT && !levels[0].battleEffects.Struct().empty();
+	// spell may have effects only on higher masteries, e.g. mass spells available at expert level only
+	return std::ranges::any_of(levels, [](const LevelInfo & level)
+	{
+		return level.battleEffects.getType() == JsonNode::JsonType::DATA_STRUCT && !level.battleEffects.Struct().empty();
+	});
 }
 
 bool CSpell::canCastOnSelf() const

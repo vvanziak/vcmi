@@ -23,6 +23,7 @@ set(test_SRCS
 		battle/CUnitStateMagicTest.cpp
 		battle/battle_UnitTest.cpp
 
+		bonus/BonusMigrationTest.cpp
 		bonus/BonusSystemTest.cpp
 
 		combatScripts/CombatScriptDescriptionTest.cpp
@@ -30,6 +31,7 @@ set(test_SRCS
 		entity/CArtifactTest.cpp
 		entity/CCreatureTest.cpp
 		entity/StackExperienceBonusesTest.cpp
+		entity/StackExperienceRanksTest.cpp
 		entity/CFactionTest.cpp
 		entity/CHeroClassTest.cpp
 		entity/CHeroTest.cpp
@@ -45,6 +47,8 @@ set(test_SRCS
 		game/HeroRecruitmentTest.cpp
 		game/HeroMovementTest.cpp
 		game/HeroSecondarySkillsTest.cpp
+		game/StartingHeroTest.cpp
+		game/UniversityTest.cpp
 		game/MovementCostTest.cpp
 		game/SaveGameTest.cpp
 		game/VictoryLossTest.cpp
@@ -56,6 +60,7 @@ set(test_SRCS
 		map/CMapEditManagerTest.cpp
 		map/CMapFormatTest.cpp
 		map/CGArtifactRegressionTest.cpp
+		map/HeroMissionCriticalTest.cpp
 		map/MapScriptTest.cpp
 		map/MapObjectDrawOrderTest.cpp
 		map/PlayerFactionsTest.cpp
@@ -156,7 +161,6 @@ set(test_SRCS
  		mock/mock_MapService.cpp
  		mock/mock_MapServiceTinyH3M.cpp
  		mock/mock_BonusBearer.cpp
-		mock/mock_CPSICallback.cpp
 		mock/TinyMapGameTest.cpp
 		mock/TinyH3MWriter.cpp
 		mock/TinyH3MBuilder.cpp
@@ -259,7 +263,6 @@ set(mock_HEADERS
 		mock/mock_UnitEnvironment.h
 		mock/mock_UnitInfo.h
 		mock/mock_vstd_RNG.h
-		mock/mock_CPSICallback.h
 )
 
 if(MSVC)

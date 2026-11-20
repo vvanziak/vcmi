@@ -345,6 +345,25 @@ Supported conditions:
 - `"spell.spellName"`: unit is affected by this spell, for example `"spell.berserk"`
 - `"healthValueSpecial"`: total health of the unit is not greater than [spell power](#spell-power) of the spell, modified by bonuses that affect spell damage. Used by Hypnotize
 
+Conditions can also be written as objects under an arbitrary name. This form supports more detailed checks, with fields named same as in equivalent [limiters](../Bonus/Bonus_Limiters.md). Field `mode` is required and accepts the same `"normal"` and `"absolute"` values:
+
+- `"bonus"`: unit has a bonus that matches all specified fields, same as `HAS_ANOTHER_BONUS_LIMITER`. Fields: `bonusType` (required), `bonusSubtype`, `bonusSourceType`, `bonusSourceID`, `bonusSourceSecondaryID`, `bonusMinValue`, `bonusMaxValue`
+- `"creature"`: unit is of this creature type, same as `CREATURE_TYPE_LIMITER`. Fields: `creature` (required), `includeUpgrades`
+- `"faction"`: unit belongs to this faction, same as `FACTION_LIMITER`. Fields: `faction` (required)
+- `"spell"`: unit is affected by this spell. Fields: `spell` (required)
+- `"healthValueSpecial"`: same as string form of this condition
+
+For example, to make a spell that can not affect units with fire immunity or with rebirth ability:
+
+```json
+"targetCondition" : {
+	"noneOf" : {
+		"fireImmunity" : { "type" : "bonus", "mode" : "normal", "bonusType" : "SPELL_SCHOOL_IMMUNITY", "bonusSubtype" : "fire" },
+		"rebirth" : { "type" : "bonus", "mode" : "absolute", "bonusType" : "COMBAT_EVENT_TRIGGER", "bonusSubtype" : "rebirth" }
+	}
+}
+```
+
 Note that bonuses granted by a spell, such as [HYPNOTIZED](../Bonus/Bonus_Types.md#hypnotized), always affect the whole unit. To make a spell that can only affect weak units, like Hypnotize does, add `healthValueSpecial` condition to `allOf` list of the spell:
 
 ```json
@@ -740,13 +759,16 @@ Value of all bonuses can be affected by following bonuses:
 	// Optional, localizable battle log message displayed when this effect is applied.
 	// The text should contain a %s placeholder which will be replaced with the affected creature's name.
 	// Singular form is used for stacks with 1 creature, plural for stacks with multiple creatures.
+	// Plural form is also used for single creature if singular form is not set.
 	// Text IDs for translation are auto-generated as:
-	//   spell.<modName>.<spellName>.<effectName>.battleLogMessage.singular
-	//   spell.<modName>.<spellName>.<effectName>.battleLogMessage.plural
+	//   spell.<modName>.<spellName>.<effectName>.battleLogSingular
+	//   spell.<modName>.<spellName>.<effectName>.battleLogPlural
 	// Values starting with @ reference an existing text ID instead of registering a new string.
-	"battleLogMessage" : { "singular" : "The %s is frozen solid.", "plural" : "The %s are frozen solid." },
+	"battleLogSingular" : "The %s is frozen solid.",
+	"battleLogPlural" : "The %s are frozen solid.",
 	// OR referencing existing text IDs:
-	// "battleLogMessage" : { "singular" : "@core.genrltxt.558", "plural" : "@core.genrltxt.559" },
+	// "battleLogSingular" : "@core.genrltxt.558",
+	// "battleLogPlural" : "@core.genrltxt.559",
 	
 	// List of bonuses granted by this spell
 	"bonus" : {
@@ -821,7 +843,7 @@ Example:
 			"type" : "FLYING_MOVEMENT",
 			"duration" : "ONE_DAY",
 			"val" : 40,
-			"valueType" : "INDEPENDENT_MIN"
+			"valueType" : "AT_MOST"
 		}
 	}
 }

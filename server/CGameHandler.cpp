@@ -2540,12 +2540,26 @@ bool CGameHandler::buildStructure(ObjectInstanceID tid, BuildingID requestedID, 
 	return true;
 }
 
-bool CGameHandler::visitTownBuilding(ObjectInstanceID tid, BuildingID bid)
+bool CGameHandler::visitTownBuilding(ObjectInstanceID tid, BuildingID bid, PlayerColor player)
 {
 	const CGTownInstance * t = gameInfo().getTown(tid);
 
+	if(!t)
+	{
+		complain("Town not found!");
+		return false;
+	}
+
 	if(!t->hasBuilt(bid))
 		return false;
+
+	// rewardable buildings interact only with visiting hero, everything else, e.g. bank, is owner-only
+	const bool alliedVisit = t->getVisitingHero() && t->getVisitingHero()->getOwner() == player && t->rewardableBuildings.count(bid);
+	if(t->getOwner() != player && !alliedVisit)
+	{
+		complain("Can't visit building in town of another player!");
+		return false;
+	}
 
 	auto subID = t->getTown()->buildings.at(bid)->subId;
 
@@ -3315,6 +3329,7 @@ bool CGameHandler::buyArtifact(ObjectInstanceID hid, ArtifactID aid)
 		if ((!town->hasBuilt(BuildingID::MAGES_GUILD_1) && complain("Cannot buy a spellbook, no mage guild in the town!"))
 			|| (gameInfo().getResource(hero->getOwner(), EGameResID::GOLD) < GameConstants::SPELLBOOK_GOLD_COST && complain("Cannot buy a spellbook, not enough gold!"))
 		    || (hero->getArt(ArtifactPosition::SPELLBOOK) && complain("Cannot buy a spellbook, hero already has a one!"))
+		    || (hero->isCampaignYog() && complain("Cannot buy a spellbook, Yog has given up magic!"))
 		   )
 			return false;
 
@@ -3943,7 +3958,9 @@ void CGameHandler::checkVictoryLossConditionsForPlayer(PlayerColor player)
 				}
 			}
 
-			if(p->human)
+			// server of an unfinished campaign waits for the host to request the next scenario
+			const auto & campaign = gameState().getStartInfo()->campState;
+			if(p->human && (!campaign || campaign->isCampaignFinished()))
 			{
 				gameServer().setState(EServerState::SHUTDOWN);
 			}

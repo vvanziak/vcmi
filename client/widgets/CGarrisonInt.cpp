@@ -503,6 +503,10 @@ CGarrisonSlot::CGarrisonSlot(CGarrisonInt * Owner, int x, int y, SlotID IID, EGa
 
 	stackCount = std::make_shared<CLabel>(labelPosW, labelPosH, owner->smallIcons ? FONT_TINY : FONT_MEDIUM, labelAlignment, Colors::WHITE);
 
+	// slot frames in the info bar background are drawn around the icon, so clicks on the frame should hit the slot
+	if(Owner->layout == CGarrisonInt::ESlotsLayout::REVERSED_TWO_ROWS)
+		pos = Rect(pos.x - 1, pos.y - 1, pos.w + 3, pos.h + 3);
+
 	update();
 }
 
@@ -566,8 +570,10 @@ bool CGarrisonSlot::handleSplittingShortcuts()
 	return true;
 }
 
-void CGarrisonInt::addSplitBtn(std::shared_ptr<CButton> button)
+void CGarrisonInt::addSplitBtn(std::shared_ptr<CButton> button, const std::string & hoverTextID)
 {
+	if(!hoverTextID.empty())
+		splitHoverTextID = hoverTextID;
 	addChild(button.get());
 	splitButtons.push_back(button);
 	button->block(getSelection() == nullptr);
@@ -805,6 +811,14 @@ void CGarrisonInt::selectSlot(CGarrisonSlot *slot)
 		highlighted = slot;
 		for(auto button : splitButtons)
 			button->block(highlighted == nullptr || !slot->our());
+
+		if(highlighted && highlighted->creature && !splitHoverTextID.empty())
+		{
+			MetaString hoverText = MetaString::createFromTextID(splitHoverTextID);
+			hoverText.replaceNamePlural(highlighted->creature->getId());
+			for(auto button : splitButtons)
+				button->addHoverText(EButtonState::NORMAL, hoverText.toString(&GAME->translator()));
+		}
 
 		if(highlighted)
 			highlighted->setHighlight(true);
