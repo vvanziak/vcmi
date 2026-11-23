@@ -214,7 +214,12 @@ void CPlayerInterface::closeAllDialogs()
 		}
 
 		if (topWindow)
+		{
 			topWindow->close();
+			// a window may refuse to close, e.g. a level-up awaiting a skill choice
+			if(ENGINE->windows().topWindow<WindowBase>() == topWindow)
+				break;
+		}
 		else
 			ENGINE->windows().popWindows(1); // does not inherits from WindowBase, e.g. settings dialog
 	}
